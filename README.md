@@ -1,4 +1,4 @@
-# coronaviris
+# Coronavirus Charts
 A project for creating COVID-19 charts
 
 ## Steps include
