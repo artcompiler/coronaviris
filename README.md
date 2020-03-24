@@ -1,5 +1,5 @@
 # coronaviris
-A project for tracking the spread of COVID-19
+A project for creating COVID-19 charts
 
 ## Steps include
 
