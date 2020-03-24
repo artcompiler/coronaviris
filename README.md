@@ -9,4 +9,5 @@ A project for tracking the spread of COVID-19
 4. edit the file name in ./tools/build.js to point to the exported file
 5. $ make
 6. copy output beginning with 'grid' and ending with '..'
-7. create a new L116 item 
+7. create a new L116 item
+8. refresh browser window
