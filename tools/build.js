@@ -53,7 +53,7 @@ function build() {
   });
 }
 
-const CHART_ID = "3L5hj7WQwf0";
+const CHART_ID = "RQ6sx0LgOCr";
 
 function generate() {
   let data = [];
@@ -156,13 +156,12 @@ function compile(data) {
     const date = new Date().toUTCString();
     let pageStr = "grid [\n";
     pageStr += 'row twelve-columns [br, ';
-    pageStr += 'style { "fontSize": "14"} cspan "Posted: ' + date + '"';
+    pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date + '"';
     pageStr += '],\n';
     val && val.length && val.forEach((v, i) => {
+      console.log("compile() v=" + JSON.stringify(v, null, 2));
       pageStr +=
-        'row twelve-columns [href "item?id=' + v.id +
-        '" style { \"height\": 200} graffito "' + v.id + '", h4 "' + (i + 1) +
-        ' of ' + data.length + ': ' + v.id + '"],\n';
+        'row twelve-columns [br, cspan "' + v.data.args.region + '", href "item?id=' + v.id + '" style { \"height\": 200} graffito "' + v.id + '"]\n';
     });
     pageStr += "]..";
     console.log("compile() pageStr=" + pageStr);
