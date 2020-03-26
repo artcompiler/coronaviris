@@ -53,7 +53,9 @@ function build() {
   });
 }
 
-const CHART_ID = "RQ6sx0LgOCr";
+const DEATHS_CHART_ID = "RQ6sx0LgOCr";
+const CASES_CHART_ID = "7OBfeV7AlUO";
+const RECOVERED_CHART_ID = "7OBfeV7AlUO";
 
 function generate() {
   let data = [];
@@ -77,9 +79,9 @@ function generate() {
         obj.values.push([date, value]);
         total += value;
       });
-      if (total > 100) {
+      if (total > 0) {
         data.push({
-          id: CHART_ID,
+          id: CASES_CHART_ID,
           data: obj
         });
       }
@@ -117,7 +119,6 @@ function pingLang(lang, resume) {
 }
 
 function putComp(secret, data, resume) {
-  console.log("putComp() secret=" + secret + " data=" + JSON.stringify(data));
   const encodedData = JSON.stringify(data);
   const options = {
     host: "localhost", //"gc.acx.ac",
@@ -137,7 +138,6 @@ function putComp(secret, data, resume) {
       data += chunk;
     }).on('end', function () {
       if (resume) {
-        console.log("putComp() data=" + JSON.stringify(data));
         resume(null, JSON.parse(data));
       }
     }).on("error", function (err) {
@@ -150,6 +150,50 @@ function putComp(secret, data, resume) {
     resume(err);
   });
 }
+
+let pending = 0;  // FIXME this only works if there is one batch being scraped.
+let scraped = {};
+let RETRIES = 4;
+const batchScrape = async (scale, force, ids, index, resume) => {
+  try {
+    index = index || 0;
+    if (index < ids.length) {
+      let id = ids[index];
+      let t0 = new Date;
+      pending++;
+      if (!scraped[id]) {
+        scraped[id] = 0;
+      }
+      postSnap(id, (err, val) => {
+        scraped[id]++;
+        pending--;
+        if (err) {
+          // Try re-scraping three times.
+          if (scraped[id] < RETRIES) {
+            batchScrape(scale, force, ids, index, resume);
+            console.log("ERROR batchScrape retry " + scraped[id] + ", " + (index + 1) + "/" + ids.length + ", " + id);
+          } else {
+            console.log("ERROR batchScrape skipping " + (index + 1) + "/" + ids.length + ", " + id);
+          }
+        } else {
+          console.log("SNAP " + (index + 1) + "/" + ids.length + ", " + id + " in " + (new Date() - t0) + "ms");
+        }
+        while (pending < scale && index < ids.length) {
+          index = index + 1;
+          id = ids[index];
+          if (scraped[id] === undefined) {
+            batchScrape(scale, force, ids, index, resume);
+          }
+        }
+      });
+    } else {
+      resume && resume();
+    }
+  } catch (x) {
+    console.log("[7] ERROR " + x.stack);
+    resume && resume("ERROR batchScrape");
+  }
+};
 
 function postSnap(id, resume) {
   let encodedData = JSON.stringify({
@@ -189,32 +233,33 @@ function postSnap(id, resume) {
   });
 }
 
-
 function compile(data) {
+  console.log("Compiling...");
   const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
   putComp(secret, data, (err, val) => {
     const date = new Date().toUTCString();
-    let pageStr = "grid [\n";
+    let pageStr;
+    pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
+    pageStr += "grid [\n";
     pageStr += 'row twelve-columns [br, ';
     pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date + '"';
     pageStr += '],\n';
     let completed = 0;
+    let ids = [];
     val && val.length && val.forEach((v, i) => {
-//      console.log("compile() v=" + JSON.stringify(v, null, 2));
       pageStr +=
         'row twelve-columns [br, cspan "' + v.data.args.region +
-        '", href "item?id=' + v.id +
-        '" img "https://cdn.acx.ac/' + v.id + '.png' +
-//        '" style { \"height\": 200} graffito "' + v.id +
+        '", br, href "item?id=' + v.id +
+        '" resize img "https://cdn.acx.ac/' + v.id + '.png' +
         '"]\n';
-      postSnap(v.id, (err, data) => {
-        completed++;
-        console.log(completed + " of " + val.length + " charts compiled");
-      });
+      ids.push(v.id);
     });
     pageStr += "]..";
+    batchScrape(2, false, ids, 0 , (err, data) => {
+      completed++;
+    });
     console.log("compile() pageStr=" + pageStr);
-  })
+  });
 }
 
 build();
