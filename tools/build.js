@@ -59,11 +59,11 @@ const RECOVERED_CHART_ID = "7OBfeV7AlUO";
 
 function generate() {
   let data = [];
-  fs.createReadStream('./data/daily-deaths.csv')
+  fs.createReadStream('./data/county-new-confirmed.csv')
     .pipe(csv())
     .on('data', (row) => {
-      const state = row["Province/State"];
-      const country = row["Country/Region"];
+      const state = row["State"];
+      const country = row["County Name"];
       const region = (state && (state + ", ") || "") + country;
       const keys = Object.keys(row);
       const dates = keys.slice(keys.length - 28);
