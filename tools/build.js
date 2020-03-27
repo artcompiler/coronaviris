@@ -79,7 +79,7 @@ function generate() {
         obj.values.push([date, value]);
         total += value;
       });
-      if (total > 0) {
+      if (total > 100) {
         data.push({
           id: CASES_CHART_ID,
           data: obj
@@ -121,8 +121,8 @@ function pingLang(lang, resume) {
 function putComp(secret, data, resume) {
   const encodedData = JSON.stringify(data);
   const options = {
-    host: "localhost", //"gc.acx.ac",
-    port: "3000", //"443",
+    host: "gc.acx.ac",
+    port: "443",
     path: "/comp",
     method: "PUT",
     headers: {
@@ -131,7 +131,7 @@ function putComp(secret, data, resume) {
       "Authorization": secret,
     },
   };
-  const req = http.request(options);
+  const req = https.request(options);
   req.on("response", (res) => {
     let data = "";
     res.on('data', function (chunk) {
