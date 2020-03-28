@@ -59,7 +59,7 @@ const RECOVERED_CHART_ID = "7OBfeV7AlUO";
 
 function generate() {
   let data = [];
-  fs.createReadStream('./data/county-new-confirmed.csv')
+  fs.createReadStream('./data/county-new-deaths.csv')
     .pipe(csv())
     .on('data', (row) => {
       const state = row["State"];
@@ -79,9 +79,9 @@ function generate() {
         obj.values.push([date, value]);
         total += value;
       });
-      if (total > 100) {
+      if (total >= 1) {
         data.push({
-          id: CASES_CHART_ID,
+          id: DEATHS_CHART_ID,
           data: obj
         });
       }
@@ -233,29 +233,34 @@ function postSnap(id, resume) {
   });
 }
 
+const SCALE = 2;
+
 function compile(data) {
   console.log("Compiling...");
   const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
   putComp(secret, data, (err, val) => {
-    const date = new Date().toUTCString();
+    const date = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(date.getDate() - 1);
     let pageStr;
     pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
     pageStr += "grid [\n";
     pageStr += 'row twelve-columns [br, ';
-    pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date + '"';
+    pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
     pageStr += '],\n';
     let completed = 0;
     let ids = [];
     val && val.length && val.forEach((v, i) => {
       pageStr +=
-        'row twelve-columns [br, cspan "' + v.data.args.region +
-        '", br, href "item?id=' + v.id +
-        '" resize img "https://cdn.acx.ac/' + v.id + '.png' +
-        '"]\n';
+        'row twelve-columns [br, ' +
+        'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
+        'br, ' +
+        'cspan "' + v.data.args.region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' +
+        ']\n';
       ids.push(v.id);
     });
     pageStr += "]..";
-    batchScrape(2, false, ids, 0 , (err, data) => {
+    batchScrape(SCALE, false, ids, 0 , (err, data) => {
       completed++;
     });
     console.log("compile() pageStr=" + pageStr);
