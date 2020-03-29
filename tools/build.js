@@ -54,14 +54,27 @@ function build() {
   });
 }
 
+function updateData() {
+  exec("curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_confirmed_usafacts.csv > data/covid_confirmed_usafacts.csv");
+  exec("curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv > data/covid_deaths_usafacts.csv");
+}
+
+const DEATHS_TYPE = "Deaths";
+const CASES_TYPE = "Cases";
+const TYPE = DEATHS_TYPE;
 const DEATHS_CHART_ID = "RQ6sx0LgOCr";
 const CASES_CHART_ID = "7OBfeV7AlUO";
 const RECOVERED_CHART_ID = "7OBfeV7AlUO";
-const TYPE = "new deaths in 28 days";
+const DATA_FILE =
+      TYPE === DEATHS_TYPE && './data/covid_deaths_usafacts.csv' ||
+      TYPE === CASES_TYPE && './data/covid_confirmed_usafacts.csv';
+const THRESHOLD =
+      TYPE === DEATHS_TYPE && 1 ||
+      TYPE === CASES_TYPE && 10;
 
 function generate() {
   let data = [];
-  fs.createReadStream('./data/county-new-deaths.csv')
+  fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
       const state = row["State"];
@@ -79,11 +92,12 @@ function generate() {
       dates.forEach(date => {
         let value = +row[date];
         obj.values.push([date, value]);
-        total += value;
+//        total += value;   // If new case/deaths, aggregate.
+        total = value;
       });
-      if (total >= 10) {
+      if (total >= THRESHOLD) {
         data.push({
-          id: DEATHS_CHART_ID,
+          id: TYPE.toLowerCase().indexOf("cases") > 0 && CASES_CHART_ID || DEATHS_CHART_ID,
           data: obj
         });
       }
@@ -277,13 +291,15 @@ function compile(data, resume) {
   console.log("Compiling...");
   let regionTable = {};   // { name, total, subregions, data }
   let regions = [];
+  let regionItems = [];
   data.forEach((v) => {
     let [region, subregion] = v.data.region.split(",");
     let values = v.data.values;
     let total = 0;
     regions.push(v.data);
     values.forEach(v => {
-      total += !isNaN(+v[1]) && v[1] || 0;
+//      total += !isNaN(+v[1]) && v[1] || 0;   // If new cases, aggregate.
+      total = !isNaN(+v[1]) && v[1] || 0;
     });
     if (!regionTable[region]) {
       regionTable[region] = {
@@ -315,38 +331,74 @@ function compile(data, resume) {
     });
     let total = 0;
     data.forEach(v => {
-      total += v.total;
+      total += v.total;  // Add total for each region.
     });
     regionTable[region].total = total;
+    regionItems.push(regionTable[region]);
     putComp(secret, data, (err, val) => {
+      // Charts compiled.
       const date = new Date();
       const yesterday = new Date();
       yesterday.setDate(date.getDate() - 1);
-      let pageSrc = renderPage(val, date, yesterday, allIDs);
+      let pageSrc = renderRegionPage(val, date, yesterday, allIDs);
       putCode(secret, {
         language: "L116",
         src: pageSrc,
       }, async (err, val) => {
-        console.log("PUT /comp proofsheet: https://gc.acx.ac/form?id=" + val.id);
+        console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
+        regionTable[region].id = val.id;
         if (allIDs.length === totalCharts) {
           // All subregion charts have been compiled. Now render region charts.
-          console.log("compile() regionTable=" + JSON.stringify(regionTable, null, 2));
-          batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-            if (err) {
-              console.log("scrape() err=" + JSON.stringify(err));
-              reject(err);
-            } else {
-              console.log("done");
-              //console.log(JSON.stringify(regionTable, null, 2));
-            }
+          let frontPage = renderFrontPage(regionItems, date, yesterday);
+          putCode(secret, {
+            language: "L116",
+            src: frontPage,
+          }, async (err, val) => {
+            console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
+            batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
+              if (err) {
+                console.log("scrape() err=" + JSON.stringify(err));
+                reject(err);
+              } else {
+                console.log("done");
+                //console.log(JSON.stringify(regionTable, null, 2));
+              }
+            });
           });
-        }
+        }    
       });
     });
   });
 }
 
-function renderPage(items, now, yesterday, ids) {
+function renderFrontPage(items, now, yesterday) {
+  // item = {region, total, id}
+  let pageSrc = "";
+  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+  pageSrc += "grid [\n";
+  pageSrc += 'row twelve-columns [br, ';
+  pageSrc += 'style { "fontSize": "10"} cspan "Posted: ' + now.toUTCString() + '"';
+  pageSrc += '],\n';
+  let completed = 0;
+  items.sort((a, b) => {
+    return b.total - a.total;
+  });
+  items && items.length && items.forEach((item, i) => {
+//    console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
+    let region = item.region;
+    pageSrc +=
+    'row twelve-columns [br, ' +
+//      'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
+      'href "form?id=' + item.id + '" "' + region + '", ' +
+      'br, ' +
+      'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
+      ']\n';
+  });
+  pageSrc += "].."
+  return pageSrc;
+}  
+
+function renderRegionPage(items, now, yesterday, ids) {
   // item = {region, subregion, total, id}
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
@@ -359,7 +411,7 @@ function renderPage(items, now, yesterday, ids) {
     let region = item.region + "," + item.subregion;
     pageSrc +=
       'row twelve-columns [br, ' +
-      'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
+      'href "form?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
       'br, ' +
       'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
       ']\n';
