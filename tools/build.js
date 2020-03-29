@@ -323,46 +323,69 @@ function compile(data, resume) {
       const date = new Date();
       const yesterday = new Date();
       yesterday.setDate(date.getDate() - 1);
-      let pageStr;
-      pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
-      pageStr += "grid [\n";
-      pageStr += 'row twelve-columns [br, ';
-      pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
-      pageStr += '],\n';
-      let completed = 0;
-      let ids = [];
-      val && val.length && val.forEach((v, i) => {
-        let region = v.region + "," + v.subregion;
-        pageStr +=
-          'row twelve-columns [br, ' +
-          'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
-          'br, ' +
-          'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + v.total + " " + TYPE + '"' +
-          ']\n';
-        ids.push(v.id);
-      });
-      pageStr += "]..";
+      // let pageStr;
+      // pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
+      // pageStr += "grid [\n";
+      // pageStr += 'row twelve-columns [br, ';
+      // pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
+      // pageStr += '],\n';
+      // let completed = 0;
+      // let ids = [];
+      // val && val.length && val.forEach((v, i) => {
+      //   let region = v.region + "," + v.subregion;
+      //   pageStr +=
+      //     'row twelve-columns [br, ' +
+      //     'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
+      //     'br, ' +
+      //     'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + v.total + " " + TYPE + '"' +
+      //     ']\n';
+      //   ids.push(v.id);
+      // });
+      // pageStr += "]..";
+      let pageSrc = renderPage(val, date, yesterday, allIDs);
       putCode(secret, {
         language: "L116",
-        src: pageStr,
+        src: pageSrc,
       }, async (err, val) => {
         console.log("PUT /comp proofsheet: https://gc.acx.ac/form?id=" + val.id);
-        allIDs = allIDs.concat(ids);
-        console.log("allIDs.length=" + allIDs.length + " totalCharts=" + totalCharts);
         if (allIDs.length === totalCharts) {
+          console.log("compile() allIDs=" + JSON.stringify(allIDs));
           batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
             if (err) {
               console.log("scrape() err=" + JSON.stringify(err));
               reject(err);
             } else {
               console.log("done");
-              console.log(JSON.stringify(regionTable, null, 2));
+              //console.log(JSON.stringify(regionTable, null, 2));
             }
           });
         }
       });
     });
   });
+
+  function renderPage(items, now, yesterday, ids) {
+    // item = {region, subregion, total, id}
+    let pageSrc = "";
+    pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+    pageSrc += "grid [\n";
+    pageSrc += 'row twelve-columns [br, ';
+    pageSrc += 'style { "fontSize": "10"} cspan "Posted: ' + now.toUTCString() + '"';
+    pageSrc += '],\n';
+    let completed = 0;
+    items && items.length && items.forEach((item, i) => {
+      let region = item.region + "," + item.subregion;
+      pageSrc +=
+        'row twelve-columns [br, ' +
+        'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
+        'br, ' +
+          'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
+        ']\n';
+      ids.push(item.id);
+    });
+    pageSrc += "].."
+    return pageSrc;
+  }  
 }
 
 build();
