@@ -49,13 +49,15 @@ function clean() {
 function build() {
   clean();
   generate(data => {
-    compile(data);
+    compile(data, data => {
+    });
   });
 }
 
 const DEATHS_CHART_ID = "RQ6sx0LgOCr";
 const CASES_CHART_ID = "7OBfeV7AlUO";
 const RECOVERED_CHART_ID = "7OBfeV7AlUO";
+const TYPE = "new deaths in 28 days";
 
 function generate() {
   let data = [];
@@ -63,14 +65,14 @@ function generate() {
     .pipe(csv())
     .on('data', (row) => {
       const state = row["State"];
-      const country = row["County Name"];
-      const region = (state && (state + ", ") || "") + country;
+      const county = row["County Name"];
+      const region = (state && (state + ", ") || "") + county;
       const keys = Object.keys(row);
       const dates = keys.slice(keys.length - 28);
       const obj = {
-        region: state === country && country || region,
+        region: state === county && county || region,
         values: [
-          ["Date", "Deaths"],
+          ["Date", "Count"],
         ],
       };
       let total = 0;
@@ -79,7 +81,7 @@ function generate() {
         obj.values.push([date, value]);
         total += value;
       });
-      if (total >= 1) {
+      if (total >= 10) {
         data.push({
           id: DEATHS_CHART_ID,
           data: obj
@@ -132,6 +134,39 @@ function putComp(secret, data, resume) {
     },
   };
   const req = https.request(options);
+  req.on("response", (res) => {
+    let data = "";
+    res.on('data', function (chunk) {
+      data += chunk;
+    }).on('end', function () {
+      if (resume) {
+        resume(null, JSON.parse(data));
+      }
+    }).on("error", function (err) {
+      console.log("[13] ERROR " + err);
+    });
+  });
+  req.end(encodedData);
+  req.on('error', function(err) {
+    console.log("[14] ERROR " + err);
+    resume(err);
+  });
+}
+
+function putCode(secret, data, resume) {
+  const encodedData = JSON.stringify(data);
+  const options = {
+    host: "localhost", //"gc.acx.ac",
+    port: "3000", //"443",
+    path: "/code",
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(encodedData),
+      "Authorization": secret,
+    },
+  };
+  const req = http.request(options);
   req.on("response", (res) => {
     let data = "";
     res.on('data', function (chunk) {
@@ -234,36 +269,99 @@ function postSnap(id, resume) {
 }
 
 const SCALE = 2;
-
-function compile(data) {
+const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
+let allIDs = [];
+function compile(data, resume) {
+  let totalCharts = data.length;
+  let count = 0;
   console.log("Compiling...");
-  const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
-  putComp(secret, data, (err, val) => {
-    const date = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(date.getDate() - 1);
-    let pageStr;
-    pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
-    pageStr += "grid [\n";
-    pageStr += 'row twelve-columns [br, ';
-    pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
-    pageStr += '],\n';
-    let completed = 0;
-    let ids = [];
-    val && val.length && val.forEach((v, i) => {
-      pageStr +=
-        'row twelve-columns [br, ' +
-        'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
-        'br, ' +
-        'cspan "' + v.data.args.region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' +
-        ']\n';
-      ids.push(v.id);
+  let regionTable = {};   // { name, total, subregion }
+  let regions = [];
+  data.forEach((v) => {
+    let [region, subregion] = v.data.region.split(",");
+    let values = v.data.values;
+    let total = 0;
+    regions.push(v.data);
+    values.forEach(v => {
+      total += !isNaN(+v[1]) && v[1] || 0;
     });
-    pageStr += "]..";
-    batchScrape(SCALE, false, ids, 0 , (err, data) => {
-      completed++;
+    if (!regionTable[region]) {
+      regionTable[region] = {
+        region: region,
+        total: 0,
+        subregions: [],
+      };
+    }
+    regionTable[region].subregions.push({
+      id: v.id,
+      region: region,
+      subregion: subregion,
+      total: total,
+      data: {
+        region: region,
+        values: values,
+      },
     });
-    console.log("compile() pageStr=" + pageStr);
+  });
+  Object.keys(regionTable).forEach(region => {
+    let data = regionTable[region].subregions;
+    data.sort((a, b) => {
+      return b.total - a.total;
+    });
+    let total = 0;
+    data.forEach(v => {
+      total += v.total;
+    });
+    regionTable[region].total = total;
+    // let regionPage;
+    // regionPage  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
+    // regionPage += "grid [\n";
+    // regionPage += 'row twelve-columns [br, ';
+    // // regionPage += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
+    // regionPage += '],\n';
+    putComp(secret, data, (err, val) => {
+      const date = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(date.getDate() - 1);
+      let pageStr;
+      pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
+      pageStr += "grid [\n";
+      pageStr += 'row twelve-columns [br, ';
+      pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
+      pageStr += '],\n';
+      let completed = 0;
+      let ids = [];
+      val && val.length && val.forEach((v, i) => {
+        let region = v.region + "," + v.subregion;
+        pageStr +=
+          'row twelve-columns [br, ' +
+          'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
+          'br, ' +
+          'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + v.total + " " + TYPE + '"' +
+          ']\n';
+        ids.push(v.id);
+      });
+      pageStr += "]..";
+      putCode(secret, {
+        language: "L116",
+        src: pageStr,
+      }, async (err, val) => {
+        console.log("PUT /comp proofsheet: https://gc.acx.ac/form?id=" + val.id);
+        allIDs = allIDs.concat(ids);
+        console.log("allIDs.length=" + allIDs.length + " totalCharts=" + totalCharts);
+        if (allIDs.length === totalCharts) {
+          batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
+            if (err) {
+              console.log("scrape() err=" + JSON.stringify(err));
+              reject(err);
+            } else {
+              console.log("done");
+              console.log(JSON.stringify(regionTable, null, 2));
+            }
+          });
+        }
+      });
+    });
   });
 }
 
