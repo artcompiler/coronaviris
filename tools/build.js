@@ -275,7 +275,7 @@ function compile(data, resume) {
   let totalCharts = data.length;
   let count = 0;
   console.log("Compiling...");
-  let regionTable = {};   // { name, total, subregion }
+  let regionTable = {};   // { name, total, subregions, data }
   let regions = [];
   data.forEach((v) => {
     let [region, subregion] = v.data.region.split(",");
@@ -304,6 +304,11 @@ function compile(data, resume) {
     });
   });
   Object.keys(regionTable).forEach(region => {
+    // For each region
+    // -- Sort subregions
+    // -- Compute region total
+    // -- Compile individual charts
+    // -- Render the page for that region
     let data = regionTable[region].subregions;
     data.sort((a, b) => {
       return b.total - a.total;
@@ -313,35 +318,10 @@ function compile(data, resume) {
       total += v.total;
     });
     regionTable[region].total = total;
-    // let regionPage;
-    // regionPage  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
-    // regionPage += "grid [\n";
-    // regionPage += 'row twelve-columns [br, ';
-    // // regionPage += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
-    // regionPage += '],\n';
     putComp(secret, data, (err, val) => {
       const date = new Date();
       const yesterday = new Date();
       yesterday.setDate(date.getDate() - 1);
-      // let pageStr;
-      // pageStr  = "\nlet resize = <x: style { 'width': 250 } x>..\n";
-      // pageStr += "grid [\n";
-      // pageStr += 'row twelve-columns [br, ';
-      // pageStr += 'style { "fontSize": "10"} cspan "Posted: ' + date.toUTCString() + '"';
-      // pageStr += '],\n';
-      // let completed = 0;
-      // let ids = [];
-      // val && val.length && val.forEach((v, i) => {
-      //   let region = v.region + "," + v.subregion;
-      //   pageStr +=
-      //     'row twelve-columns [br, ' +
-      //     'href "item?id=' + v.id + '" resize img "https://cdn.acx.ac/' + v.id + '.png", ' +
-      //     'br, ' +
-      //     'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + v.total + " " + TYPE + '"' +
-      //     ']\n';
-      //   ids.push(v.id);
-      // });
-      // pageStr += "]..";
       let pageSrc = renderPage(val, date, yesterday, allIDs);
       putCode(secret, {
         language: "L116",
@@ -349,7 +329,8 @@ function compile(data, resume) {
       }, async (err, val) => {
         console.log("PUT /comp proofsheet: https://gc.acx.ac/form?id=" + val.id);
         if (allIDs.length === totalCharts) {
-          console.log("compile() allIDs=" + JSON.stringify(allIDs));
+          // All subregion charts have been compiled. Now render region charts.
+          console.log("compile() regionTable=" + JSON.stringify(regionTable, null, 2));
           batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
             if (err) {
               console.log("scrape() err=" + JSON.stringify(err));
@@ -363,30 +344,30 @@ function compile(data, resume) {
       });
     });
   });
-
-  function renderPage(items, now, yesterday, ids) {
-    // item = {region, subregion, total, id}
-    let pageSrc = "";
-    pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-    pageSrc += "grid [\n";
-    pageSrc += 'row twelve-columns [br, ';
-    pageSrc += 'style { "fontSize": "10"} cspan "Posted: ' + now.toUTCString() + '"';
-    pageSrc += '],\n';
-    let completed = 0;
-    items && items.length && items.forEach((item, i) => {
-      let region = item.region + "," + item.subregion;
-      pageSrc +=
-        'row twelve-columns [br, ' +
-        'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
-        'br, ' +
-          'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
-        ']\n';
-      ids.push(item.id);
-    });
-    pageSrc += "].."
-    return pageSrc;
-  }  
 }
+
+function renderPage(items, now, yesterday, ids) {
+  // item = {region, subregion, total, id}
+  let pageSrc = "";
+  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+  pageSrc += "grid [\n";
+  pageSrc += 'row twelve-columns [br, ';
+  pageSrc += 'style { "fontSize": "10"} cspan "Posted: ' + now.toUTCString() + '"';
+  pageSrc += '],\n';
+  let completed = 0;
+  items && items.length && items.forEach((item, i) => {
+    let region = item.region + "," + item.subregion;
+    pageSrc +=
+      'row twelve-columns [br, ' +
+      'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
+      'br, ' +
+      'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
+      ']\n';
+    ids.push(item.id);
+  });
+  pageSrc += "].."
+  return pageSrc;
+}  
 
 build();
 
