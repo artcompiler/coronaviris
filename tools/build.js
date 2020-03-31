@@ -1,10 +1,6 @@
-// STEPS
-// x-- Generate L114 data
-// -- Compile charts
-// -- Scrape charts
-// -- Render static html page
-// -- Push to repo
-
+// TODO
+// -- compute daily values from totals
+// --
 const https = require('https');
 const http = require('http');
 const csv = require('csv-parser');
@@ -61,7 +57,10 @@ function updateData() {
 
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
-const TYPE = DEATHS_TYPE;
+const DAILY = false;
+
+const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
+
 const DEATHS_CHART_ID = "RQ6sx0LgOCr";
 const CASES_CHART_ID = "7OBfeV7AlUO";
 const RECOVERED_CHART_ID = "7OBfeV7AlUO";
@@ -71,6 +70,9 @@ const DATA_FILE =
 const THRESHOLD =
       TYPE === DEATHS_TYPE && 1 ||
       TYPE === CASES_TYPE && 10;
+const CHART_ID =
+      TYPE === DEATHS_TYPE && DEATHS_CHART_ID ||
+      TYPE === CASES_TYPE && CASES_CHART_ID;
 
 function generate() {
   let data = [];
@@ -81,7 +83,7 @@ function generate() {
       const county = row["County Name"];
       const region = (state && (state + ", ") || "") + county;
       const keys = Object.keys(row);
-      const dates = keys.slice(keys.length - 28);
+      const dates = keys.slice(keys.length - 29);
       const obj = {
         region: state === county && county || region,
         values: [
@@ -89,16 +91,22 @@ function generate() {
         ],
       };
       let total = 0;
-      dates.forEach(date => {
-        let value = +row[date];
+      let lastDate;
+      let value;
+      dates.forEach((date, i) => {
+        if (DAILY && i > 0) {
+          value = +row[date] - +row[lastDate];
+        } else {
+          value = +row[date];
+        }
         obj.values.push([date, value]);
-//        total += value;   // If new case/deaths, aggregate.
-        total = value;
+        total = DAILY && total + value || value;   // If new case/deaths, aggregate.
+        lastDate = date;
       });
       if (total >= THRESHOLD) {
         data.push({
-          id: TYPE.toLowerCase().indexOf("cases") > 0 && CASES_CHART_ID || DEATHS_CHART_ID,
-          data: obj
+          id: CHART_ID,
+          data: obj,
         });
       }
     })
@@ -282,13 +290,14 @@ function postSnap(id, resume) {
   });
 }
 
-const SCALE = 2;
+const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
 let allIDs = [];
 function compile(data, resume) {
+  // data = [{id, data: {region, values}}]
+  console.log("Compiling...");
   let totalCharts = data.length;
   let count = 0;
-  console.log("Compiling...");
   let regionTable = {};   // { name, total, subregions, data }
   let regions = [];
   let regionItems = [];
@@ -298,7 +307,7 @@ function compile(data, resume) {
     let total = 0;
     regions.push(v.data);
     values.forEach(v => {
-//      total += !isNaN(+v[1]) && v[1] || 0;   // If new cases, aggregate.
+      // TODO compute new cases here.
       total = !isNaN(+v[1]) && v[1] || 0;
     });
     if (!regionTable[region]) {
@@ -365,7 +374,7 @@ function compile(data, resume) {
               }
             });
           });
-        }    
+        }
       });
     });
   });
@@ -390,13 +399,13 @@ function renderFrontPage(items, now, yesterday) {
     'row twelve-columns [br, ' +
 //      'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
       'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, ' +
-      'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
+      'br, "' + item.total + ' ' + (DAILY && 'New ' || 'Total ') + TYPE + '", br, ' +
+      '"' + yesterday.toUTCString().slice(0, 16) + '"' +
       ']\n';
   });
   pageSrc += "].."
   return pageSrc;
-}  
+}
 
 function renderRegionPage(items, now, yesterday, ids) {
   // item = {region, subregion, total, id}
@@ -411,15 +420,13 @@ function renderRegionPage(items, now, yesterday, ids) {
     let region = item.region + "," + item.subregion;
     pageSrc +=
       'row twelve-columns [br, ' +
-      'href "form?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
-      'br, ' +
-      'cspan "' + region + ', ' + yesterday.toUTCString().slice(0, 16) + '"' + 'br, cspan "' + item.total + " " + TYPE + '"' +
-      ']\n';
+      'href "form?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' + 'br, ' +
+      '"' + region + '", br, "' + (DAILY && 'New ' || 'Total ') + TYPE + ', ", "' + yesterday.toUTCString().slice(0, 16) + '"]\n';    
     ids.push(item.id);
   });
   pageSrc += "].."
   return pageSrc;
-}  
+}
 
 build();
 
