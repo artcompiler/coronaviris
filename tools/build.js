@@ -56,11 +56,10 @@ const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
 const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
-const NEW = true;
 
-const DEATHS_CHART_ID = "RQ6sx0LgOCr";
-const CASES_CHART_ID = "7OBfeV7AlUO";
-const RECOVERED_CHART_ID = "7OBfeV7AlUO";
+const DEATHS_CHART_ID = "LO9fnWABvcg";
+const CASES_CHART_ID = "6KeTlyvblf4";
+const RECOVERED_CHART_ID = "";
 const DATA_FILE =
       TYPE === DEATHS_TYPE && './data/covid_deaths_usafacts.csv' ||
       TYPE === CASES_TYPE && './data/covid_confirmed_usafacts.csv';
