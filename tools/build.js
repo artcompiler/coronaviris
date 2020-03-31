@@ -57,9 +57,9 @@ function updateData() {
 
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
-const DAILY = false;
 
-const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
+const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
+const NEW = true;
 
 const DEATHS_CHART_ID = "RQ6sx0LgOCr";
 const CASES_CHART_ID = "7OBfeV7AlUO";
@@ -90,20 +90,18 @@ function generate() {
           ["Date", "Count"],
         ],
       };
-      let total = 0;
       let lastDate;
       let value;
       dates.forEach((date, i) => {
-        if (DAILY && i > 0) {
+        if (NEW && i > 0) {
           value = +row[date] - +row[lastDate];
         } else {
           value = +row[date];
         }
         obj.values.push([date, value]);
-        total = DAILY && total + value || value;   // If new case/deaths, aggregate.
         lastDate = date;
       });
-      if (total >= THRESHOLD) {
+      if (value >= THRESHOLD) {
         data.push({
           id: CHART_ID,
           data: obj,
@@ -111,9 +109,9 @@ function generate() {
       }
     })
     .on('end', () => {
-      fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
-        console.log(data.length + ' items found');
-      });
+      // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
+      //   console.log(data.length + ' items found');
+      // });
       compile(data);
       console.log('CSV file successfully processed');
     });
@@ -393,13 +391,11 @@ function renderFrontPage(items, now, yesterday) {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
-//    console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
     pageSrc +=
-    'row twelve-columns [br, ' +
-//      'href "item?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' +
+    'style { "fontSize": "10"} row twelve-columns [br, ' +
       'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item.total + ' ' + (DAILY && 'New ' || 'Total ') + TYPE + '", br, ' +
+      'br, "' + item.total + ' ' + (NEW && 'New ' || 'Total ') + TYPE + '", br, ' +
       '"' + yesterday.toUTCString().slice(0, 16) + '"' +
       ']\n';
   });
@@ -419,9 +415,10 @@ function renderRegionPage(items, now, yesterday, ids) {
   items && items.length && items.forEach((item, i) => {
     let region = item.region + "," + item.subregion;
     pageSrc +=
-      'row twelve-columns [br, ' +
-      'href "form?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' + 'br, ' +
-      '"' + region + '", br, "' + (DAILY && 'New ' || 'Total ') + TYPE + ', ", "' + yesterday.toUTCString().slice(0, 16) + '"]\n';    
+      'style { "fontSize": "10"} row twelve-columns [br, ' +
+      'href "form?id=' + item.id + '" resize img "https://cdn.acx.ac/' + item.id + '.png", ' + 'br, "' +
+      item.total + ' ' + (NEW && 'New ' || 'Total ') + TYPE + ', ", ' +
+      '"' + region + '", br, "' + yesterday.toUTCString().slice(0, 16) + '"]\n';    
     ids.push(item.id);
   });
   pageSrc += "].."
