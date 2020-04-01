@@ -55,7 +55,7 @@ function updateData() {
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
-const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
+const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
 
 const DEATHS_CHART_ID = "LO9fnWABvcg";
 const CASES_CHART_ID = "6KeTlyvblf4";
