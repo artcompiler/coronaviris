@@ -57,15 +57,15 @@ const CASES_TYPE = "Cases";
 
 const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
 
-const DEATHS_CHART_ID = "LO9fnWABvcg";
-const CASES_CHART_ID = "6KeTlyvblf4";
+const DEATHS_CHART_ID = "4LJhbQ57mSw";
+const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 const DATA_FILE =
       TYPE === DEATHS_TYPE && './data/covid_deaths_usafacts.csv' ||
       TYPE === CASES_TYPE && './data/covid_confirmed_usafacts.csv';
 const THRESHOLD =
       TYPE === DEATHS_TYPE && 1 ||
-      TYPE === CASES_TYPE && 10;
+      TYPE === CASES_TYPE && 1;
 const CHART_ID =
       TYPE === DEATHS_TYPE && DEATHS_CHART_ID ||
       TYPE === CASES_TYPE && CASES_CHART_ID;
@@ -391,11 +391,12 @@ function renderFrontPage(items, now, yesterday) {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
+    console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
     pageSrc +=
     'style { "fontSize": "12"} row twelve-columns [br, ' +
       'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item.total + ' Total ' + TYPE + '", br, ' +
+      'br, "' + item['total'] + ' Total ' + TYPE + '", br, ' +
       '"' + yesterday.toUTCString().slice(0, 16) + '"' +
       ']\n';
   });
