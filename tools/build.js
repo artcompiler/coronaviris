@@ -44,7 +44,9 @@ function clean() {
 
 function build() {
   clean();
-  generate();
+ // generate();
+ //Jesse -- euroGen
+  euroGen();
 }
 
 function updateData() {
@@ -55,14 +57,28 @@ function updateData() {
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
+const US_REGION = "United States";
+const GB_REGION = "Great Britian";
+const REGION = GB_REGION;
+
 const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
+const NEW = false;
 
 const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
+
 const DATA_FILE =
-      TYPE === DEATHS_TYPE && './data/covid_deaths_usafacts.csv' ||
-      TYPE === CASES_TYPE && './data/covid_confirmed_usafacts.csv';
+      TYPE === DEATHS_TYPE && (
+        REGION === GB_REGION && 'no data' ||
+        REGION === GB_REGION && './data/gb-total-confirmed.csv' ||
+        './data/covid_deaths_usafacts.csv'
+      ) ||
+      TYPE === CASES_TYPE && (
+        REGION === GB_REGION && './data/gb-total-confirmed.csv' ||
+        './data/covid_confirmed_usafacts.csv'
+      );
+
 const THRESHOLD =
       TYPE === DEATHS_TYPE && 1 ||
       TYPE === CASES_TYPE && 1;
@@ -292,6 +308,60 @@ function generate() {
       compile(data);
     });
 }
+
+//Jesse -- euroGen
+function euroGen() {
+  let data = [];
+  fs.createReadStream(DATA_FILE)
+    .pipe(csv())
+    .on('data', (row) => {
+      const county = row["County"];
+      const state = row["State"];
+      const region = row["Area Name"];
+      // const region = (state && (state + ", ") || "") + county;
+      const keys = Object.keys(row);
+      const dates = keys.slice(keys.length - 15);
+      const objNew = {
+        region: state === county && county || region,
+        isNew: true,
+        values: [
+          ["Date", "Count"],
+        ],
+      };
+      const objTotal = {
+        region: state === county && county || region,
+        isNew: false,
+        values: [
+          ["Date", "Count"],
+        ],
+      };
+      let lastDate;
+      let value;
+      dates.forEach((date, i) => {
+        objNew.values.push([date, +row[date] - +row[lastDate], +row[date]]);
+        objTotal.values.push([date, +row[date]]);
+        lastDate = date;
+      });
+      if (+row[lastDate] >= THRESHOLD) {
+        data.push({
+          id: CHART_ID,
+          data: objNew,
+        });
+        data.push({
+          id: CHART_ID,
+          data: objTotal,
+        });
+      }
+    })
+    .on('end', () => {
+      // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
+      //   console.log(data.length + ' items found');
+      // });
+      console.log(data.length + ' items found');
+      console.log('CSV file successfully processed');
+      compile(data);
+    });
+} 
 
 const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
