@@ -287,7 +287,7 @@ function generate() {
       // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
       //   console.log(data.length + ' items found');
       // });
-      console.log(data.length + ' items found');
+      console.log(data.length / 2 + ' items found');
       console.log('CSV file successfully processed');
       compile(data);
     });
@@ -391,7 +391,7 @@ function renderFrontPage(items, now, yesterday) {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
-    console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
+    // console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
     pageSrc +=
     'style { "fontSize": "12"} row twelve-columns [br, ' +
@@ -440,11 +440,11 @@ function renderRegionPage(items, now, yesterday, ids) {
         ]
         five-columns [
           br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 10, "marginLeft": 25} "${newItem.total + ' New ' + TYPE}",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${TYPE} by Day",
         ],
         five-columns [
           br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 10, "marginLeft": 25} "${totalItem.total + ' Total ' + TYPE}",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${TYPE} by Day",
         ]
       ]`;
     ids.push(newItem.id);
