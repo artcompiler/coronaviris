@@ -44,7 +44,9 @@ function clean() {
 
 function build() {
   clean();
-  generate();
+ // generate();
+ //Jesse -- euroGen
+  euroGen();
 }
 
 function updateData() {
@@ -55,8 +57,8 @@ function updateData() {
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
-const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
-const NEW = true;
+const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
+const NEW = false;
 
 const DEATHS_CHART_ID = "RQ6sx0LgOCr";
 const CASES_CHART_ID = "7OBfeV7AlUO";
@@ -293,6 +295,59 @@ function generate() {
       compile(data);
     });
 }
+
+//Jesse -- euroGen
+function euroGen() {
+  let data = [];
+  fs.createReadStream(DATA_FILE)
+    .pipe(csv())
+    .on('data', (row) => {
+      const state = row["State"];
+      const region = row["Area Name"];
+      //const region = (state && (state + ", ") || "") + county;
+      const keys = Object.keys(row);
+      const dates = keys.slice(keys.length - 15;
+      const objNew = {
+        region: state === county && county || region,
+        isNew: true,
+        values: [
+          ["Date", "Count"],
+        ],
+      };
+      const objTotal = {
+        region: state === county && county || region,
+        isNew: false,
+        values: [
+          ["Date", "Count"],
+        ],
+      };
+      let lastDate;
+      let value;
+      dates.forEach((date, i) => {
+        objNew.values.push([date, +row[date] - +row[lastDate], +row[date]]);
+        objTotal.values.push([date, +row[date]]);
+        lastDate = date;
+      });
+      if (+row[lastDate] >= THRESHOLD) {
+        data.push({
+          id: CHART_ID,
+          data: objNew,
+        });
+        data.push({
+          id: CHART_ID,
+          data: objTotal,
+        });
+      }
+    })
+    .on('end', () => {
+      // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
+      //   console.log(data.length + ' items found');
+      // });
+      console.log(data.length + ' items found');
+      console.log('CSV file successfully processed');
+      compile(data);
+    });
+} 
 
 const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
