@@ -81,7 +81,7 @@ const DATA_FILE =
 
 const THRESHOLD =
       TYPE === DEATHS_TYPE && 1 ||
-      TYPE === CASES_TYPE && 1;
+      TYPE === CASES_TYPE && 100;
 const CHART_ID =
       TYPE === DEATHS_TYPE && DEATHS_CHART_ID ||
       TYPE === CASES_TYPE && CASES_CHART_ID;
@@ -315,12 +315,12 @@ function euroGen() {
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
-      const county = row["County"];
-      const state = row["State"];
-      const region = row["Area Name"];
-      // const region = (state && (state + ", ") || "") + county;
+      const county = row["County"] || row["Area Name"];
+      const state = row["State"] || "United Kingdom";
+      // const region = row["Area Name"];
+      const region = (state && (state + ", ") || "") + county;
       const keys = Object.keys(row);
-      const dates = keys.slice(keys.length - 15);
+      const dates = keys.slice(keys.length - 3);
       const objNew = {
         region: state === county && county || region,
         isNew: true,
@@ -338,7 +338,7 @@ function euroGen() {
       let lastDate;
       let value;
       dates.forEach((date, i) => {
-        objNew.values.push([date, +row[date] - +row[lastDate], +row[date]]);
+        objNew.values.push([date, +row[date] - +row[lastDate] || 0, +row[date]]);
         objTotal.values.push([date, +row[date]]);
         lastDate = date;
       });
