@@ -44,9 +44,7 @@ function clean() {
 
 function build() {
   clean();
- // generate();
- //Jesse -- euroGen
-  euroGen();
+  generate();
 }
 
 function updateData() {
@@ -54,12 +52,14 @@ function updateData() {
   exec("curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv > data/covid_deaths_usafacts.csv");
 }
 
+const DATE_RANGE = 29;
+
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
-const US_REGION = "United States";
-const GB_REGION = "Great Britian";
-const REGION = GB_REGION;
+const US_REGION = "US";
+const UK_REGION = "UK";
+const REGION = US_REGION;
 
 const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
 const NEW = false;
@@ -70,18 +70,18 @@ const RECOVERED_CHART_ID = "";
 
 const DATA_FILE =
       TYPE === DEATHS_TYPE && (
-        REGION === GB_REGION && 'no data' ||
-        REGION === GB_REGION && './data/gb-total-confirmed.csv' ||
-        './data/covid_deaths_usafacts.csv'
+        REGION === US_REGION && './data/covid_deaths_usafacts.csv' ||
+        null
       ) ||
       TYPE === CASES_TYPE && (
-        REGION === GB_REGION && './data/gb-total-confirmed.csv' ||
-        './data/covid_confirmed_usafacts.csv'
+        REGION === US_REGION && './data/covid_confirmed_usafacts.csv' ||
+        REGION === UK_REGION && './data/gb-total-confirmed.csv' ||
+        null
       );
 
 const THRESHOLD =
       TYPE === DEATHS_TYPE && 1 ||
-      TYPE === CASES_TYPE && 100;
+      TYPE === CASES_TYPE && 1;
 const CHART_ID =
       TYPE === DEATHS_TYPE && DEATHS_CHART_ID ||
       TYPE === CASES_TYPE && CASES_CHART_ID;
@@ -262,32 +262,56 @@ function generate() {
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
-      const state = row["State"];
-      const county = row["County Name"];
+      const county = row["County Name"] || row["Area Name"] || "";
+      const state = row["State"] || REGION;
       const region = (state && (state + ", ") || "") + county;
       const keys = Object.keys(row);
-      const dates = keys.slice(keys.length - 29);
+      const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
       const objNew = {
         region: state === county && county || region,
         isNew: true,
-        values: [
-          ["Date", "Count"],
-        ],
+        values: [],
       };
       const objTotal = {
         region: state === county && county || region,
         isNew: false,
-        values: [
-          ["Date", "Count"],
-        ],
+        values: [],
       };
       let lastDate;
       let value;
       dates.forEach((date, i) => {
-        objNew.values.push([date, +row[date] - +row[lastDate], +row[date]]);
-        objTotal.values.push([date, +row[date]]);
+        let currVal = row[date] || '0';
+        let lastVal = row[lastDate] || '0';
+        currVal = +currVal.replace(',', '');
+        lastVal = +lastVal.replace(',', '');
+        let newValue = currVal - lastVal;
+        let totalValue = currVal;
+        if (!isNaN(newValue)) {
+          objNew.values.push([date, newValue]);
+        }
+        if (!isNaN(totalValue)) {
+          objTotal.values.push([date, totalValue]);
+        }
         lastDate = date;
       });
+      let dateParts = lastDate.split('/');
+      let date;
+      date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+      date.setDate(date.getDate() - objNew.values.length + 1);
+      for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
+        let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
+        objNew.values.unshift([dateStr, 0]);
+        date.setDate(date.getDate() - 1);
+      }
+      objNew.values.unshift(["Date", "Count"]);
+      date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+      date.setDate(date.getDate() - objTotal.values.length + 1);
+      for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
+        let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
+        objTotal.values.unshift([dateStr, 0]);
+        date.setDate(date.getDate() - 1);
+      }
+      objTotal.values.unshift(["Date", "Count"]);
       if (+row[lastDate] >= THRESHOLD) {
         data.push({
           id: CHART_ID,
@@ -298,6 +322,7 @@ function generate() {
           data: objTotal,
         });
       }
+      console.log("objTotal=" + JSON.stringify(objTotal, null, 2));
     })
     .on('end', () => {
       // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
@@ -308,60 +333,6 @@ function generate() {
       compile(data);
     });
 }
-
-//Jesse -- euroGen
-function euroGen() {
-  let data = [];
-  fs.createReadStream(DATA_FILE)
-    .pipe(csv())
-    .on('data', (row) => {
-      const county = row["County"] || row["Area Name"];
-      const state = row["State"] || "United Kingdom";
-      // const region = row["Area Name"];
-      const region = (state && (state + ", ") || "") + county;
-      const keys = Object.keys(row);
-      const dates = keys.slice(keys.length - 3);
-      const objNew = {
-        region: state === county && county || region,
-        isNew: true,
-        values: [
-          ["Date", "Count"],
-        ],
-      };
-      const objTotal = {
-        region: state === county && county || region,
-        isNew: false,
-        values: [
-          ["Date", "Count"],
-        ],
-      };
-      let lastDate;
-      let value;
-      dates.forEach((date, i) => {
-        objNew.values.push([date, +row[date] - +row[lastDate] || 0, +row[date]]);
-        objTotal.values.push([date, +row[date]]);
-        lastDate = date;
-      });
-      if (+row[lastDate] >= THRESHOLD) {
-        data.push({
-          id: CHART_ID,
-          data: objNew,
-        });
-        data.push({
-          id: CHART_ID,
-          data: objTotal,
-        });
-      }
-    })
-    .on('end', () => {
-      // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
-      //   console.log(data.length + ' items found');
-      // });
-      console.log(data.length + ' items found');
-      console.log('CSV file successfully processed');
-      compile(data);
-    });
-} 
 
 const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
