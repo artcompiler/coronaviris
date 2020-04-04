@@ -322,7 +322,6 @@ function generate() {
           data: objTotal,
         });
       }
-      console.log("objTotal=" + JSON.stringify(objTotal, null, 2));
     })
     .on('end', () => {
       // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
