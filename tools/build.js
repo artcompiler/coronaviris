@@ -38,13 +38,13 @@ function exec(cmd, args) {
 
 function clean() {
   console.log("Cleaning...");
-  cldir('./build');
-  mkdir('./build/data');
+//  cldir('./build');
+//  mkdir('./build/data');
 }
 
 function build() {
   clean();
-  generate();
+  generate(require(DATA_FILE));
 }
 
 function updateData() {
@@ -59,9 +59,11 @@ const CASES_TYPE = "Cases";
 
 const US_REGION = "US";
 const UK_REGION = "UK";
-const REGION = US_REGION;
+const SPAIN_REGION = "ESP";
 
-const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
+const REGION = SPAIN_REGION;
+
+const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
 const NEW = false;
 
 const DEATHS_CHART_ID = "4LJhbQ57mSw";
@@ -71,11 +73,13 @@ const RECOVERED_CHART_ID = "";
 const DATA_FILE =
       TYPE === DEATHS_TYPE && (
         REGION === US_REGION && './data/covid_deaths_usafacts.csv' ||
+        REGION === SPAIN_REGION && '../build/data/spain-deaths.json' ||
         null
       ) ||
       TYPE === CASES_TYPE && (
         REGION === US_REGION && './data/covid_confirmed_usafacts.csv' ||
         REGION === UK_REGION && './data/gb-total-confirmed.csv' ||
+        REGION === SPAIN_REGION && '../build/data/spain-cases.json' ||
         null
       );
 
@@ -257,80 +261,72 @@ function postSnap(id, resume) {
   });
 }
 
-function generate() {
-  let data = [];
-  fs.createReadStream(DATA_FILE)
-    .pipe(csv())
-    .on('data', (row) => {
-      console.log("row=" + JSON.stringify(row, null, 2));
-      const county = row["County Name"] || row["Area Name"] || "";
-      const state = row["State"] || REGION;
-      const region = (state && (state + ", ") || "") + county;
-      const keys = Object.keys(row);
-      const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
-      const objNew = {
-        region: state === county && county || region,
-        isNew: true,
-        values: [],
-      };
-      const objTotal = {
-        region: state === county && county || region,
-        isNew: false,
-        values: [],
-      };
-      let lastDate;
-      let value;
-      dates.forEach((date, i) => {
-        let currVal = row[date] || '0';
-        let lastVal = row[lastDate] || '0';
-        currVal = +currVal.replace(',', '');
-        lastVal = +lastVal.replace(',', '');
-        let newValue = currVal - lastVal;
-        let totalValue = currVal;
-        if (!isNaN(newValue)) {
-          objNew.values.push([date, newValue]);
-        }
-        if (!isNaN(totalValue)) {
-          objTotal.values.push([date, totalValue]);
-        }
-        lastDate = date;
-      });
-      let dateParts = lastDate.split('/');
-      let date;
-      date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
-      date.setDate(date.getDate() - objNew.values.length + 1);
-      for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
-        let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-        objNew.values.unshift([dateStr, 0]);
-        date.setDate(date.getDate() - 1);
+function generate(rows) {
+  const data = [];
+  rows.forEach(row => {
+    const county = row["regionName"];
+    const state = row["groupName"];
+    const region = (state && (state + ", ") || "") + county;
+    const keys = Object.keys(row);
+    const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
+    const objNew = {
+      region: state === county && county || region,
+      isNew: true,
+      values: [],
+    };
+    const objTotal = {
+      region: state === county && county || region,
+      isNew: false,
+      values: [],
+    };
+    let lastDate;
+    let value;
+    dates.forEach((date, i) => {
+      let currVal = row[date] || '0';
+      let lastVal = row[lastDate] || '0';
+      let newValue = currVal - lastVal;
+      let totalValue = currVal;
+      if (!isNaN(newValue)) {
+        objNew.values.push([date, newValue]);
       }
-      objNew.values.unshift(["Date", "Count"]);
-      date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
-      date.setDate(date.getDate() - objTotal.values.length + 1);
-      for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
-        let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-        objTotal.values.unshift([dateStr, 0]);
-        date.setDate(date.getDate() - 1);
+      if (!isNaN(totalValue)) {
+        objTotal.values.push([date, totalValue]);
       }
-      objTotal.values.unshift(["Date", "Count"]);
-      if (+row[lastDate] >= THRESHOLD) {
-        data.push({
-          id: CHART_ID,
-          data: objNew,
-        });
-        data.push({
-          id: CHART_ID,
-          data: objTotal,
-        });
-      }
-    })
-    .on('end', () => {
-      fs.writeFile('build/data/us-daily-deaths.json', JSON.stringify(data, null, 2), () => {
-      });
-      console.log(data.length / 2 + ' items found');
-      console.log('CSV file successfully processed');
-      compile(data);
+      lastDate = date;
     });
+    let dateParts = lastDate.split('/');
+    let date;
+    date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+    date.setDate(date.getDate() - objNew.values.length + 1);
+    for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
+      let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
+      objNew.values.unshift([dateStr, 0]);
+      date.setDate(date.getDate() - 1);
+    }
+    objNew.values.unshift(["Date", "Count"]);
+    date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+    date.setDate(date.getDate() - objTotal.values.length + 1);
+    for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
+      let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
+      objTotal.values.unshift([dateStr, 0]);
+      date.setDate(date.getDate() - 1);
+    }
+    objTotal.values.unshift(["Date", "Count"]);
+    if (+row[lastDate] >= THRESHOLD) {
+      data.push({
+        id: CHART_ID,
+        data: objNew,
+      });
+      data.push({
+        id: CHART_ID,
+        data: objTotal,
+      });
+    }
+  });
+  //fs.writeFile('build/data/us-daily-deaths.json', JSON.stringify(data, null, 2), () => {
+  console.log(data.length / 2 + ' items found');
+  console.log('CSV file successfully processed');
+  compile(data);
 }
 
 const SCALE = 4;
