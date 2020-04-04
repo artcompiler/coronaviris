@@ -262,6 +262,7 @@ function generate() {
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
+      console.log("row=" + JSON.stringify(row, null, 2));
       const county = row["County Name"] || row["Area Name"] || "";
       const state = row["State"] || REGION;
       const region = (state && (state + ", ") || "") + county;
@@ -324,9 +325,8 @@ function generate() {
       }
     })
     .on('end', () => {
-      // fs.writeFile('build/data/daily-deaths.l114.json', JSON.stringify(data, null, 2), () => {
-      //   console.log(data.length + ' items found');
-      // });
+      fs.writeFile('build/data/us-daily-deaths.json', JSON.stringify(data, null, 2), () => {
+      });
       console.log(data.length / 2 + ' items found');
       console.log('CSV file successfully processed');
       compile(data);
