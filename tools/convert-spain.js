@@ -65,6 +65,28 @@ const RECOVERED_CHART_ID = "";
 
 const DATA_FILE = './data/covid_spain.csv';
 
+const REGION_NAMES = {
+  'AN': 'Andalucía',
+  'AR': 'Aragón',
+  'AS': 'Asturias, Principado de',
+  'IB': 'Balears',
+  'CN': 'Canarias',
+  'CB': 'Cantabria',
+  'CM': 'Castilla-La Mancha',
+  'CL': 'Castilla y León',
+  'CT': 'Catalunya',
+  'CE': 'Ceuta',
+  'VC': 'Valenciana, Comunidad',
+  'EX': 'Extremadura',
+  'GA': 'Galicia',
+  'MD': 'Madrid, Comunidad de',
+  'ME': 'ME',
+  'MC': 'Murcia, Región de',
+  'NC': 'Navarra, Comunidad Foral de',
+  'PV': 'País Vasco',
+  'RI': 'RI',
+};
+
 function convert() {
   const regionLabel = 'CCAA Codigo ISO';
   const dateLabel = 'Fecha';
@@ -74,25 +96,27 @@ function convert() {
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
-      const region = row[regionLabel];
+      const region = REGION_NAMES[row[regionLabel]];
       if (!casesTable[region]) {
         casesTable[region] = {
           regionName: region,
-          groupName: "ESP",
+          groupName: "Spain",
+          values: {},
         };
       }
       if (!deathsTable[region]) {
         deathsTable[region] = {
           regionName: region,
-          groupName: "ESP",
+          groupName: "Spain",
+          values: {},
         };
       }
       const dateParts = row[dateLabel].split('/');
-      const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1], dateParts[0]).toISOString().slice(0, 10) || null;
+      const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
       const casesCount = row[casesLabel];
       const deathsCount = row[deathsLabel];
-      casesTable[region][date] = +casesCount || 0;
-      deathsTable[region][date] = +deathsCount || 0;
+      casesTable[region].values[date] = +casesCount || 0;
+      deathsTable[region].values[date] = +deathsCount || 0;
       if (date === null) {
         delete casesTable[region];
         delete deathsTable[region];
@@ -105,12 +129,11 @@ function convert() {
         deathsData.push(deathsTable[key]);
       });
       fs.writeFile('build/data/spain-cases.json', JSON.stringify(casesData, null, 2), () => {
-        console.log('Done writing file spain-cases.json');
+        console.log(casesData.length + ' regions in Spain, written to build/data/spain-cases.json');
       });
       fs.writeFile('build/data/spain-deaths.json', JSON.stringify(deathsData, null, 2), () => {
-        console.log('Done writing file spain-deaths.json');
+        console.log(deathsData.length + ' regions in Spain, written to build/data/spain-deaths.json');
       });
-      console.log('CSV file successfully processed');
     });
 }
 

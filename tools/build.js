@@ -42,53 +42,36 @@ function clean() {
 //  mkdir('./build/data');
 }
 
+const FILES = [
+  '../build/data/us-cases.json',
+  '../build/data/us-deaths.json',
+  '../build/data/spain-cases.json',
+  '../build/data/spain-deaths.json',
+];
+
 function build() {
   clean();
-  generate(require(DATA_FILE));
-}
-
-function updateData() {
-  exec("curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_confirmed_usafacts.csv > data/covid_confirmed_usafacts.csv");
-  exec("curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv > data/covid_deaths_usafacts.csv");
+  FILES.forEach(file => {
+    generate(file);
+  });
 }
 
 const DATE_RANGE = 29;
 
-const DEATHS_TYPE = "Deaths";
-const CASES_TYPE = "Cases";
+const DEATHS_TYPE = "deaths";
+const CASES_TYPE = "deaths";
 
 const US_REGION = "US";
 const UK_REGION = "UK";
-const SPAIN_REGION = "ESP";
+const SPAIN_REGION = "Spain";
 
-const REGION = SPAIN_REGION;
-
-const TYPE = DEATHS_TYPE;  // SET ME TO CHANGE CHARTS!
 const NEW = false;
 
 const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const DATA_FILE =
-      TYPE === DEATHS_TYPE && (
-        REGION === US_REGION && './data/covid_deaths_usafacts.csv' ||
-        REGION === SPAIN_REGION && '../build/data/spain-deaths.json' ||
-        null
-      ) ||
-      TYPE === CASES_TYPE && (
-        REGION === US_REGION && './data/covid_confirmed_usafacts.csv' ||
-        REGION === UK_REGION && './data/gb-total-confirmed.csv' ||
-        REGION === SPAIN_REGION && '../build/data/spain-cases.json' ||
-        null
-      );
-
-const THRESHOLD =
-      TYPE === DEATHS_TYPE && 1 ||
-      TYPE === CASES_TYPE && 1;
-const CHART_ID =
-      TYPE === DEATHS_TYPE && DEATHS_CHART_ID ||
-      TYPE === CASES_TYPE && CASES_CHART_ID;
+const THRESHOLD = 100;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -261,29 +244,43 @@ function postSnap(id, resume) {
   });
 }
 
-function generate(rows) {
+function getChartIDFromType(type) {
+  switch(type) {
+  case DEATHS_TYPE:
+    return DEATHS_CHART_ID;
+  case CASES_TYPE:
+    return CASES_CHART_ID;
+  }
+  return null;
+}
+
+function generate(file) {
+  const rows = require(file);
+  const fileName = file.split('/').pop();
+  const [country, suffix] = fileName.toLowerCase().split("-");
+  const type = suffix.split(".")[0];
+  const chartID = getChartIDFromType(type);
   const data = [];
   rows.forEach(row => {
-    const county = row["regionName"];
-    const state = row["groupName"];
-    const region = (state && (state + ", ") || "") + county;
-    const keys = Object.keys(row);
+    const region = row["regionName"];
+    const group = row["groupName"];
+    const keys = Object.keys(row.values);
     const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
     const objNew = {
-      region: state === county && county || region,
+      region: group + ', ' + region,
       isNew: true,
       values: [],
     };
     const objTotal = {
-      region: state === county && county || region,
+      region: group + ', ' + region,
       isNew: false,
       values: [],
     };
     let lastDate;
     let value;
     dates.forEach((date, i) => {
-      let currVal = row[date] || '0';
-      let lastVal = row[lastDate] || '0';
+      let currVal = row.values[date] || '0';
+      let lastVal = row.values[lastDate] || '0';
       let newValue = currVal - lastVal;
       let totalValue = currVal;
       if (!isNaN(newValue)) {
@@ -294,9 +291,7 @@ function generate(rows) {
       }
       lastDate = date;
     });
-    let dateParts = lastDate.split('/');
-    let date;
-    date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+    let date = new Date(lastDate);
     date.setDate(date.getDate() - objNew.values.length + 1);
     for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
@@ -304,7 +299,7 @@ function generate(rows) {
       date.setDate(date.getDate() - 1);
     }
     objNew.values.unshift(["Date", "Count"]);
-    date = new Date('20' + dateParts[2], dateParts[0], dateParts[1]);
+    date = new Date(lastDate);
     date.setDate(date.getDate() - objTotal.values.length + 1);
     for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
@@ -312,29 +307,28 @@ function generate(rows) {
       date.setDate(date.getDate() - 1);
     }
     objTotal.values.unshift(["Date", "Count"]);
-    if (+row[lastDate] >= THRESHOLD) {
+    if (+row.values[lastDate] >= THRESHOLD) {
       data.push({
-        id: CHART_ID,
+        id: chartID,
         data: objNew,
       });
       data.push({
-        id: CHART_ID,
+        id: chartID,
         data: objTotal,
       });
     }
   });
-  //fs.writeFile('build/data/us-daily-deaths.json', JSON.stringify(data, null, 2), () => {
   console.log(data.length / 2 + ' items found');
-  console.log('Data successfully loaded');
-  compile(data);
+  compile(data, country, type, val => {
+  });
 }
 
 const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
-let allIDs = [];
-function compile(data, resume) {
+function compile(data, country, type, resume) {
   // data = [{id, data: {region, values}}]
   console.log("Compiling...");
+  let allIDs = [];
   let totalCharts = data.length;
   let count = 0;
   let regionTable = {};   // { name, total, subregions, data }
@@ -383,21 +377,26 @@ function compile(data, resume) {
       const date = new Date();
       const yesterday = new Date();
       yesterday.setDate(date.getDate() - 1);
-      let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
+      let pageSrc = renderRegionPage(valNew, type, date, yesterday, allIDs);
       putCode(secret, {
         language: "L116",
         src: pageSrc,
       }, async (err, val) => {
-        console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
+        // console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
         regionTable[region].id = val.id;
         if (allIDs.length === totalCharts) {
           // All subregion charts have been compiled. Now render region charts.
-          let frontPage = renderFrontPage(regionItems, date, yesterday);
+          let frontPage = renderFrontPage(regionItems, type, date, yesterday);
           putCode(secret, {
             language: "L116",
             src: frontPage,
           }, async (err, val) => {
             console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
+            resume({
+              country: country,
+              type: type,
+              id: val.id
+            });
             batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
               if (err) {
                 console.log("scrape() err=" + JSON.stringify(err));
@@ -414,7 +413,7 @@ function compile(data, resume) {
   });
 }
 
-function renderFrontPage(items, now, yesterday) {
+function renderFrontPage(items, type, now, yesterday) {
   // item = {region, total, id}
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
@@ -432,7 +431,7 @@ function renderFrontPage(items, now, yesterday) {
     pageSrc +=
     'style { "fontSize": "12"} row twelve-columns [br, ' +
       'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item['total'] + ' Total ' + TYPE + '", br, ' +
+      'br, "' + item['total'] + ' Total ' + type + '", br, ' +
       '"' + yesterday.toUTCString().slice(0, 16) + '"' +
       ']\n';
   });
@@ -440,7 +439,7 @@ function renderFrontPage(items, now, yesterday) {
   return pageSrc;
 }
 
-function renderRegionPage(items, now, yesterday, ids) {
+function renderRegionPage(items, type, now, yesterday, ids) {
   // item = {region, subregion, total, id, isNew}
   const itemsTable = {};
   const itemsNames = [];
@@ -476,11 +475,11 @@ function renderRegionPage(items, now, yesterday, ids) {
         ]
         five-columns [
           br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${TYPE} by Day",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "new ${type} by Day",
         ],
         five-columns [
           br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${TYPE} by Day",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "total ${type} by Day",
         ]
       ]`;
     ids.push(newItem.id);

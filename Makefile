@@ -1,7 +1,8 @@
 build:
 	node tools/build.js
 
-spain:
+convert:
+	node tools/convert-us.js
 	node tools/convert-spain.js
 
 refresh:
