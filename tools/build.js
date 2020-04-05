@@ -325,7 +325,7 @@ function generate(rows) {
   });
   //fs.writeFile('build/data/us-daily-deaths.json', JSON.stringify(data, null, 2), () => {
   console.log(data.length / 2 + ' items found');
-  console.log('CSV file successfully processed');
+  console.log('Data successfully loaded');
   compile(data);
 }
 
