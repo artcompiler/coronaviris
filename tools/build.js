@@ -323,7 +323,7 @@ function generate(file) {
   });
 }
 
-const SCALE = 10;
+const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
 function compile(data, country, type, resume) {
   // data = [{id, data: {region, values}}]
