@@ -59,7 +59,7 @@ function build() {
 const DATE_RANGE = 29;
 
 const DEATHS_TYPE = "deaths";
-const CASES_TYPE = "deaths";
+const CASES_TYPE = "cases";
 
 const US_REGION = "US";
 const UK_REGION = "UK";
@@ -71,7 +71,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 100;
+const THRESHOLD = 1;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -323,7 +323,7 @@ function generate(file) {
   });
 }
 
-const SCALE = 4;
+const SCALE = 10;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
 function compile(data, country, type, resume) {
   // data = [{id, data: {region, values}}]
@@ -431,7 +431,7 @@ function renderFrontPage(items, type, now, yesterday) {
     pageSrc +=
     'style { "fontSize": "12"} row twelve-columns [br, ' +
       'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item['total'] + ' Total ' + type + '", br, ' +
+      'br, "' + item['total'] + ' total ' + type + '", br, ' +
       '"' + yesterday.toUTCString().slice(0, 16) + '"' +
       ']\n';
   });
@@ -475,11 +475,11 @@ function renderRegionPage(items, type, now, yesterday, ids) {
         ]
         five-columns [
           br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "new ${type} by Day",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${type} by day",
         ],
         five-columns [
           br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "total ${type} by Day",
+          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${type} by day",
         ]
       ]`;
     ids.push(newItem.id);

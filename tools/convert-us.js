@@ -82,7 +82,7 @@ function convert(inFile, outFile) {
       const dates = keys.slice(keys.length - 29);
       dates.forEach((d, i) => {
         const dateParts = d.split('/');
-        const date = dateParts.length === 3 && new Date('20' + dateParts[2], dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
+        const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
         values[date] = +row[d];
       });
       data.push({
