@@ -2,8 +2,12 @@ build:
 	node tools/build.js
 
 convert:
+	rm -rf build
+	mkdir build
+	mkdir build/data
 	node tools/convert-us.js
 	node tools/convert-spain.js
+	node tools/convert-switzerland.js
 
 refresh:
 	curl https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_confirmed_usafacts.csv > data/covid_confirmed_usafacts.csv

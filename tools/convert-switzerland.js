@@ -38,11 +38,9 @@ function exec(cmd, args) {
 function clean() {
   console.log("Cleaning...");
   cldir('./build');
-  mkdir('./build/data');
 }
 
 function build() {
-  clean();
   convert();
 }
 
@@ -121,7 +119,6 @@ function convert() {
         delete casesTable[region];
         //delete deathsTable[region];
       }
-      console.log(JSON.stringify(casesTable, null, 2));
     })
     .on('end', () => {
       const casesData = [],  deathsData = [];
@@ -138,4 +135,4 @@ function convert() {
     });
 }
 
-convert();
+build();
