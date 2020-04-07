@@ -45,7 +45,7 @@ const FILES = [
  '../build/data/us-deaths.json',
  '../build/data/spain-cases.json',
  '../build/data/spain-deaths.json',
-  '../build/data/switzerland-cases.json',
+ '../build/data/switzerland-cases.json',
 ];
 
 function build() {
@@ -70,7 +70,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 10;
+const THRESHOLD = 2;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -322,7 +322,7 @@ function generate(file) {
   });
 }
 
-const SCALE = 4;
+const SCALE = 1;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
 function compile(data, country, type, resume) {
   // data = [{id, data: {region, values}}]
