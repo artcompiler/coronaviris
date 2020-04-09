@@ -84,7 +84,7 @@ const REGION_NAMES = {
   'MC': 'Murcia, Región de',
   'NC': 'Navarra, Comunidad Foral de',
   'PV': 'País Vasco',
-  'RI': 'RI',
+  'RI': 'La Rioja',
 };
 
 function convert() {
