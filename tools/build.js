@@ -41,11 +41,11 @@ function clean() {
 }
 
 const FILES = [
- '../build/data/us-cases.json',
- '../build/data/us-deaths.json',
- '../build/data/spain-cases.json',
+// '../build/data/us-cases.json',
+// '../build/data/us-deaths.json',
+// '../build/data/spain-cases.json',
  '../build/data/spain-deaths.json',
- '../build/data/switzerland-cases.json',
+// '../build/data/switzerland-cases.json',
 ];
 
 function build() {
@@ -322,7 +322,7 @@ function generate(file) {
   });
 }
 
-const SCALE = 1;
+const SCALE = 4;
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
 function compile(data, country, type, resume) {
   // data = [{id, data: {region, values}}]

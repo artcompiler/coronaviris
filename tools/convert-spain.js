@@ -88,9 +88,9 @@ const REGION_NAMES = {
 };
 
 function convert() {
-  const regionLabel = 'CCAA Codigo ISO';
-  const dateLabel = 'Fecha';
-  const casesLabel = 'Casos ';
+  const regionLabel = 'CCAA';
+  const dateLabel = 'FECHA';
+  const casesLabel = 'CASOS';
   const deathsLabel = 'Fallecidos';
   const casesTable = {}, deathsTable = {};
   fs.createReadStream(DATA_FILE)
