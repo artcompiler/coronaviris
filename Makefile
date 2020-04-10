@@ -1,12 +1,12 @@
 build:
-	./tools/puppeteer-up.sh
+#	./tools/puppeteer-up.sh
 	node tools/build.js
 
 convert:
 	rm -rf build
 	mkdir build
 	mkdir build/data
-	node --max-old-space-size=8192 tools/convert-us.js
+	node tools/convert-us.js
 #	node tools/convert-spain.js
 #	node tools/convert-switzerland.js
 

@@ -41,11 +41,11 @@ function clean() {
 }
 
 const FILES = [
-//  '../build/data/us-cases.json',
+  '../build/data/us.json',
 //  '../build/data/us-deaths.json',
 //  '../build/data/spain-cases.json',
 //  '../build/data/spain-deaths.json',
-  '../build/data/switzerland-cases.json',
+//  '../build/data/switzerland-cases.json',
 ];
 const SCALE = FILES.length;
 
@@ -71,7 +71,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 2;
+const THRESHOLD = 2000;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -132,8 +132,8 @@ function putComp(secret, data, resume) {
 function putCode(secret, data, resume) {
   const encodedData = JSON.stringify(data);
   const options = {
-    host: "localhost", //"gc.acx.ac",
-    port: "3000", //"443",
+    host: "gc.acx.ac",
+    port: "443",
     path: "/code",
     method: "PUT",
     headers: {
@@ -148,6 +148,7 @@ function putCode(secret, data, resume) {
     res.on('data', function (chunk) {
       data += chunk;
     }).on('end', function () {
+      console.log("putCode() data=" + data);
       if (resume) {
         resume(null, JSON.parse(data));
       }
@@ -257,11 +258,12 @@ function getChartIDFromType(type) {
 function generate(file) {
   const rows = require(file);
   const fileName = file.split('/').pop();
-  const [country, suffix] = fileName.toLowerCase().split("-");
-  const type = suffix.split(".")[0];
+  const [country] = fileName.toLowerCase().split("-");
+  const type = "cases";
   const chartID = getChartIDFromType(type);
   const data = [];
   rows.forEach(row => {
+    console.log("generate() row=" + JSON.stringify(row, null, 2));
     const region = row["regionName"];
     const group = row["groupName"];
     const keys = Object.keys(row.cases);
@@ -281,8 +283,8 @@ function generate(file) {
     dates.forEach((date, i) => {
       let currValCases = row.cases[date] || '0';
       let lastValCases = row.cases[lastDate] || '0';
-      let newValueCases = currVal - lastVal;
-      let totalValueCases = currVal;
+      let newValueCases = currValCases - lastValCases;
+      let totalValueCases = currValCases;
       if (!isNaN(newValueCases)) {
         objNewCases.values.push([date, newValueCases]);
       }
@@ -292,37 +294,37 @@ function generate(file) {
       lastDate = date;
     });
     let date = new Date(lastDate);
-    date.setDate(date.getDate() - objNew.values.length + 1);
-    for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
+    date.setDate(date.getDate() - objNewCases.values.length + 1);
+    for (let i = DATE_RANGE - objNewCases.values.length; i > 0; i--) {
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-      objNew.values.unshift([dateStr, 0]);
+      objNewCases.values.unshift([dateStr, 0]);
       date.setDate(date.getDate() - 1);
     }
-    objNew.values.unshift(["Date", "Count"]);
+    objNewCases.values.unshift(["Date", "Count"]);
     date = new Date(lastDate);
-    date.setDate(date.getDate() - objTotal.values.length + 1);
-    for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
+    date.setDate(date.getDate() - objTotalCases.values.length + 1);
+    for (let i = DATE_RANGE - objTotalCases.values.length; i > 0; i--) {
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-      objTotal.values.unshift([dateStr, 0]);
+      objTotalCases.values.unshift([dateStr, 0]);
       date.setDate(date.getDate() - 1);
     }
-    objTotal.values.unshift(["Date", "Count"]);
-    if (+row.values[lastDate] >= THRESHOLD) {
+    objTotalCases.values.unshift(["Date", "Count"]);
+    if (+row.cases[lastDate] >= THRESHOLD) {
       data.push({
         id: chartID,
-        data: objNew,
+        data: objNewCases,
       });
       data.push({
         id: chartID,
-        data: objTotal,
+        data: objTotalCases,
       });
       data.push({
         id: chartID,
-        data: objNew,
+        data: objNewCases,
       });
       data.push({
         id: chartID,
-        data: objTotal,
+        data: objTotalCases,
       });
     }
   });
@@ -389,7 +391,8 @@ function compile(data, country, type, resume) {
         language: "L116",
         src: pageSrc,
       }, async (err, val) => {
-        // console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
+        console.log("compile() val=" + JSON.stringify(val, null, 2));
+        //console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
         regionTable[region].id = val.id;
         if (allIDs.length === totalCharts) {
           // All subregion charts have been compiled. Now render region charts.
