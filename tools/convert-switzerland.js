@@ -94,6 +94,7 @@ function convert() {
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
+      console.log("convert() row=" + JSON.stringify(row, null, 2));
       const region = row[regionLabel];
       if (!casesTable[region]) {
         casesTable[region] = {
