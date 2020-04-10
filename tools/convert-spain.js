@@ -111,12 +111,15 @@ function convert() {
           values: {},
         };
       }
-      const dateParts = row[dateLabel].split('/');
-      const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
-      const casesCount = row[casesLabel];
-      const deathsCount = row[deathsLabel];
-      casesTable[region].values[date] = +casesCount || 0;
-      deathsTable[region].values[date] = +deathsCount || 0;
+      let data = null;
+      if (row[dateLabel]) {
+        const dateParts = row[dateLabel].split('/');
+        date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
+        const casesCount = row[casesLabel];
+        const deathsCount = row[deathsLabel];
+        casesTable[region].values[date] = +casesCount || 0;
+        deathsTable[region].values[date] = +deathsCount || 0;
+      }
       if (date === null) {
         delete casesTable[region];
         delete deathsTable[region];
