@@ -1,0 +1,32 @@
+[{
+  "North America": {
+    "United States": {
+      "Abbreviation": "US",
+      "Washington": {
+        "Abbreviation": "WA",
+        "Kitsap County": {
+          "data": "kitsap.org/data.csv",
+          "converter": "convert-wa-katsip",
+          "schema": "",
+        }
+      }
+      "default": {
+        "datasource": "<url>",
+        "converter": "convert-us",
+        "schema": "State, County"
+      }
+    },
+    "Canada": {
+    },
+    "Mexico": {
+    }
+  },
+  "Europe": {
+    "England": {
+    },
+    "France": {
+    },
+    "Spain": {
+    }
+  }
+}]
