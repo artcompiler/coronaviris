@@ -132,8 +132,8 @@ function putComp(secret, data, resume) {
 function putCode(secret, data, resume) {
   const encodedData = JSON.stringify(data);
   const options = {
-    host: "localhost", //"gc.acx.ac",
-    port: "3000", //"443",
+    host: "gc.acx.ac",
+    port: "443",
     path: "/code",
     method: "PUT",
     headers: {
@@ -142,7 +142,7 @@ function putCode(secret, data, resume) {
       "Authorization": secret,
     },
   };
-  const req = http.request(options);
+  const req = https.request(options);
   req.on("response", (res) => {
     let data = "";
     res.on('data', function (chunk) {

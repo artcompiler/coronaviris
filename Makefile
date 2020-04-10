@@ -1,5 +1,4 @@
 build:
-	./tools/puppeteer-up.sh
 	node tools/build.js
 
 convert:
