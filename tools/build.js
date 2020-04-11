@@ -71,7 +71,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 2000;
+const THRESHOLD = 20000;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -142,7 +142,7 @@ function putCode(secret, data, resume) {
       "Authorization": secret,
     },
   };
-  const req = http.request(options);
+  const req = https.request(options);
   req.on("response", (res) => {
     let data = "";
     res.on('data', function (chunk) {
@@ -478,7 +478,7 @@ function renderRegionPage(items, type, now, yesterday, ids) {
     let totalItem = item["total"];
     let region = newItem.region + "," + newItem.subregion;
     pageSrc += `
-    style { "fontSize": 12, "height": 100 } row [
+    style { "fontSize": 12, "height": 130 } row [
         two-columns [
           br, style {"fontWeight": 600} "${region}",
           br, "${yesterday.toUTCString().slice(0, 16)}"
@@ -491,7 +491,7 @@ function renderRegionPage(items, type, now, yesterday, ids) {
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12} row [
+      style { "fontSize": 12, "height": 200} row [
         two-columns [
           br, style {"fontWeight": 600, "opacity": .4} "CASES",
         ],
@@ -505,7 +505,7 @@ function renderRegionPage(items, type, now, yesterday, ids) {
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12} row [
+      style { "fontSize": 12, "height": 200} row [
         two-columns [
           br, style {"fontWeight": 600, "opacity": .4} "DEATHS",
         ],
