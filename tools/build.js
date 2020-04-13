@@ -1,6 +1,12 @@
-// TODO
-// -- compute daily values from totals
-// --
+/*
+   TODO
+   xx Compute daily values from totals
+   -- Fix negative new values
+   -- Render group charts
+   -- Add demographic data
+   -- Add attribution
+   -- 
+*/
 const https = require('https');
 const http = require('http');
 const csv = require('csv-parser');
@@ -42,12 +48,11 @@ function clean() {
 
 const FILES = [
   '../build/data/us.json',
-//  '../build/data/us-deaths.json',
 //  '../build/data/spain-cases.json',
 //  '../build/data/spain-deaths.json',
 //  '../build/data/switzerland-cases.json',
 ];
-const SCALE = FILES.length;
+const SCALE = 5; //FILES.length;
 
 function build() {
   clean();
@@ -71,7 +76,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 20000;
+const THRESHOLD = 1000;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -148,7 +153,6 @@ function putCode(secret, data, resume) {
     res.on('data', function (chunk) {
       data += chunk;
     }).on('end', function () {
-      console.log("putCode() data=" + data);
       if (resume) {
         resume(null, JSON.parse(data));
       }
@@ -261,80 +265,122 @@ function generate(file) {
   const [country] = fileName.toLowerCase().split("-");
   const type = "cases";
   const chartID = getChartIDFromType(type);
-  const data = [];
+  const data = {};
+  const regionNewCases = {
+    id: CASES_CHART_ID,
+    data: {
+      type: "new cases",
+      values: [
+      ]
+    }
+  };
   rows.forEach(row => {
-    console.log("generate() row=" + JSON.stringify(row, null, 2));
-    const region = row["regionName"];
-    const group = row["groupName"];
+    const subRegion = row["regionName"];
+    const region = row["groupName"];
+    const fullName = region + ', ' + subRegion;
     const keys = Object.keys(row.cases);
     const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
     const objNewCases = {
-      region: group + ', ' + region,
-      isNew: true,
+      region: region,
+      subRegion: subRegion,
+      type: 'new cases',
       values: [],
     };
     const objTotalCases = {
-      region: group + ', ' + region,
-      isNew: false,
+      region: region,
+      subRegion: subRegion,
+      type: 'total cases',
       values: [],
     };
-    let lastDate;
+    const objNewDeaths = {
+      region: region,
+      subRegion: subRegion,
+      type: 'new deaths',
+      values: [],
+    };
+    const objTotalDeaths = {
+      region: region,
+      subRegion: subRegion,
+      type: 'total deaths',
+      values: [],
+    };
+    let prevDate;
     let value;
     dates.forEach((date, i) => {
       let currValCases = row.cases[date] || '0';
-      let lastValCases = row.cases[lastDate] || '0';
-      let newValueCases = currValCases - lastValCases;
-      let totalValueCases = currValCases;
-      if (!isNaN(newValueCases)) {
-        objNewCases.values.push([date, newValueCases]);
+      let prevValCases = row.cases[prevDate] || '0';
+      let newValCases = currValCases - prevValCases;
+      let totalValCases = currValCases;
+      let currValDeaths = row.deaths[date] || '0';
+      let prevValDeaths = row.deaths[prevDate] || '0';
+      let newValDeaths = currValDeaths - prevValDeaths;
+      let totalValDeaths = currValDeaths;  // Last one is the total.
+      if (!isNaN(newValCases)) {
+        objNewCases.values.push([date, newValCases]);
       }
-      if (!isNaN(totalValueCases)) {
-        objTotalCases.values.push([date, totalValueCases]);
+      if (!isNaN(totalValCases)) {
+        objTotalCases.values.push([date, totalValCases]);
       }
-      lastDate = date;
+      if (!isNaN(newValDeaths)) {
+        objNewDeaths.values.push([date, newValDeaths]);
+      }
+      if (!isNaN(totalValDeaths)) {
+        objTotalDeaths.values.push([date, totalValDeaths]);
+      }
+      prevDate = date;
     });
-    let date = new Date(lastDate);
+    let date = new Date(prevDate);
     date.setDate(date.getDate() - objNewCases.values.length + 1);
     for (let i = DATE_RANGE - objNewCases.values.length; i > 0; i--) {
+      // Add zero values for day for which there is no data.
+      // FIXME negative values.
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
       objNewCases.values.unshift([dateStr, 0]);
+      objTotalCases.values.unshift([dateStr, 0]);
+      objNewDeaths.values.unshift([dateStr, 0]);
+      objTotalDeaths.values.unshift([dateStr, 0]);
       date.setDate(date.getDate() - 1);
     }
     objNewCases.values.unshift(["Date", "Count"]);
-    date = new Date(lastDate);
-    date.setDate(date.getDate() - objTotalCases.values.length + 1);
-    for (let i = DATE_RANGE - objTotalCases.values.length; i > 0; i--) {
-      let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-      objTotalCases.values.unshift([dateStr, 0]);
-      date.setDate(date.getDate() - 1);
-    }
     objTotalCases.values.unshift(["Date", "Count"]);
-    if (+row.cases[lastDate] >= THRESHOLD) {
-      data.push({
-        id: chartID,
+    objNewDeaths.values.unshift(["Date", "Count"]);
+    objTotalDeaths.values.unshift(["Date", "Count"]);
+    date = new Date(prevDate);
+    date.setDate(date.getDate() - objTotalCases.values.length + 1);
+    if (+row.deaths[prevDate] >= THRESHOLD) {
+      if (!data[region]) {
+        data[region] = {};
+      }
+      if (!data[region][subRegion]) {
+        data[region][subRegion] = {};
+      }
+      data[region][subRegion].newCases = {
+        id: CASES_CHART_ID,
         data: objNewCases,
-      });
-      data.push({
-        id: chartID,
+      };
+      data[region][subRegion].totalCases = {
+        id: CASES_CHART_ID,
         data: objTotalCases,
-      });
-      data.push({
-        id: chartID,
-        data: objNewCases,
-      });
-      data.push({
-        id: chartID,
-        data: objTotalCases,
-      });
+      };
+      data[region][subRegion].newDeaths = {
+        id: DEATHS_CHART_ID,
+        data: objNewDeaths,
+      };
+      data[region][subRegion].totalDeaths = {
+        id: DEATHS_CHART_ID,
+        data: objTotalDeaths,
+      };
     }
   });
-  console.log(data.length / 2 + ' items found');
-  compile(data, country, type, val => {
+   compileRegion({}, data, val => {
   });
 }
 
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
-function compile(data, country, type, resume) {
+function compileRegion(schema, data, resume) {
+  console.log("compileRegion() data=" + JSON.stringify(data, null, 2));
+  // Compile a page with its subregions, and return aggregate data to roll up
+  // to the caller.
   // data = [{id, data: {region, values}}]
   console.log("Compiling...");
   let allIDs = [];
@@ -360,9 +406,9 @@ function compile(data, country, type, resume) {
     }
     regionTable[region].subregions.push({
       id: v.id,
+      type: v.data.type,
       region: region,
       subregion: subregion,
-      isNew: v.data.isNew || false,
       total: total,
       data: {
         region: region,
@@ -377,7 +423,7 @@ function compile(data, country, type, resume) {
     });
     let total = 0;
     data.forEach(v => {
-      total += v.total;  // Add total for each region.
+      total += +v.total;  // Add total for each region.
     });
     regionTable[region].total = total;
     regionItems.push(regionTable[region]);
@@ -386,17 +432,16 @@ function compile(data, country, type, resume) {
       const date = new Date();
       const yesterday = new Date();
       yesterday.setDate(date.getDate() - 1);
-      let pageSrc = renderRegionPage(valNew, type, date, yesterday, allIDs);
+      let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
       putCode(secret, {
         language: "L116",
         src: pageSrc,
       }, async (err, val) => {
-        console.log("compile() val=" + JSON.stringify(val, null, 2));
         //console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
         regionTable[region].id = val.id;
         if (allIDs.length === totalCharts) {
           // All subregion charts have been compiled. Now render region charts.
-          let frontPage = renderFrontPage(regionItems, type, date, yesterday);
+          let frontPage = renderFrontPage(regionItems, date, yesterday);
           putCode(secret, {
             language: "L116",
             src: frontPage,
@@ -404,7 +449,6 @@ function compile(data, country, type, resume) {
             console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
             resume({
               country: country,
-              type: type,
               id: val.id
             });
             batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
@@ -423,7 +467,7 @@ function compile(data, country, type, resume) {
   });
 }
 
-function renderFrontPage(items, type, now, yesterday) {
+function renderFrontPage(items, now, yesterday) {
   // item = {region, total, id}
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
@@ -436,34 +480,29 @@ function renderFrontPage(items, type, now, yesterday) {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
-    // console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
     pageSrc +=
     'style { "fontSize": "12"} row twelve-columns [br, ' +
-      'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item['total'] + ' total ' + type + '", br, ' +
-      '"' + yesterday.toUTCString().slice(0, 16) + '"' +
+      'href "form?id=' + item.id + '" "' + region + '"' +
+      'br, "' + item.total + ' total cases", br, ' +
       ']\n';
   });
   pageSrc += "].."
   return pageSrc;
 }
 
-function renderRegionPage(items, type, now, yesterday, ids) {
-  // item = {region, subregion, total, id, isNew}
+function renderRegionPage(items, now, yesterday, ids) {
+  // item = {region, subregion, total, id, type}
   const itemsTable = {};
   const itemsNames = [];
   items.forEach(item => {
     const name = item.subregion + ", " + item.region;
+    const type = item.type;
     if (!itemsTable[name]) {
       itemsTable[name] = {};
-    }
-    if (item.isNew) {
-      itemsTable[name]["new"] = item;
-    } else {
       itemsNames.push(name);
-      itemsTable[name]["total"] = item;
     }
+    itemsTable[name][type] = item;
   });
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
@@ -474,9 +513,11 @@ function renderRegionPage(items, type, now, yesterday, ids) {
   let completed = 0;
   itemsNames.forEach(name => {
     let item = itemsTable[name];
-    let newItem = item["new"];
-    let totalItem = item["total"];
-    let region = newItem.region + "," + newItem.subregion;
+    let newCasesItem = item["new cases"];
+    let totalCasesItem = item["total cases"];
+    let newDeathsItem = item["new deaths"];
+    let totalDeathsItem = item["total deaths"];
+    let region = newCasesItem.region + "," + newCasesItem.subregion;
     pageSrc += `
     style { "fontSize": 12, "height": 130 } row [
         two-columns [
@@ -484,42 +525,40 @@ function renderRegionPage(items, type, now, yesterday, ids) {
           br, "${yesterday.toUTCString().slice(0, 16)}"
         ]
         five-columns [
-          br, br, style {"fontWeight": 600, "opacity": .4} "NEW",
+          br, br, br, style {"fontWeight": 600, "opacity": .4} "NEW",
         ],
         five-columns [
-          br, br, style {"fontWeight": 600, "opacity": .4} "TOTAL",
+          br, br, br, style {"fontWeight": 600, "opacity": .4} "TOTAL",
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12, "height": 200} row [
+      style { "fontSize": 12, "height": 175} row [
         two-columns [
           br, style {"fontWeight": 600, "opacity": .4} "CASES",
         ],
         five-columns [
-          br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${type} by day",
+          href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
         ],
         five-columns [
-          br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${type} by day",
+          href "form?id=${totalCasesItem.id}" resize img "https://cdn.acx.ac/${totalCasesItem.id}.png",
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12, "height": 200} row [
+      style { "fontSize": 12, "height": 175} row [
         two-columns [
           br, style {"fontWeight": 600, "opacity": .4} "DEATHS",
         ],
         five-columns [
-          br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${type} by day",
+          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png",
         ],
         five-columns [
-          br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${type} by day",
+          href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
         ]
       ]`;
-    ids.push(newItem.id);
-    ids.push(totalItem.id);
+    ids.push(newCasesItem.id);
+    ids.push(totalCasesItem.id);
+    ids.push(newDeathsItem.id);
+    ids.push(totalDeathsItem.id);
   });
   pageSrc += "].."
   return pageSrc;

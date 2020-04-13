@@ -1,20 +1,39 @@
 [{
   "North America": {
+    "_": {
+      "abbreviation": "NA",
+      "type": "continent",
+      "schema": [
+        "country",
+      ]
+    },
     "United States": {
-      "Abbreviation": "US",
-      "Washington": {
-        "Abbreviation": "WA",
-        "Kitsap County": {
-          "data": "kitsap.org/data.csv",
-          "converter": "convert-wa-katsip",
-          "schema": "",
-        }
-      }
-      "default": {
-        "datasource": "<url>",
+      "_": {
+        "abbreviation": "US",
+        "type": "country",
+        "source": "",
         "converter": "convert-us",
-        "schema": "State, County"
-      }
+        "schema": [
+          "state",
+        ]
+      },
+      "Washington": {
+        "_": {
+          "abbreviation": "WA",
+          "type": "state",
+          "schema": [
+            "county"
+          ]
+        },
+        "Kitsap County": {
+          "_": {
+            "type": "county",
+            "data": "kitsap.org/data.csv",
+            "converter": "convert-wa-katsip",
+            "schema": [],
+          }
+        }
+      },
     },
     "Canada": {
     },
