@@ -55,65 +55,80 @@ const UK_REGION = "UK";
 const REGION = US_REGION;
 */
 const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
-const NEW = false;
+const NEW = true;
 
 const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const DATA_FILE = './data/switzerland-cases.csv';
+const DATA_FILE = './data/Cases-Table 1.csv';
 
-/* const REGION_NAMES = {
-  'AN': 'Andalucía',
-  'AR': 'Aragón',
-  'AS': 'Asturias, Principado de',
-  'IB': 'Balears',
-  'CN': 'Canarias',
-  'CB': 'Cantabria',
-  'CM': 'Castilla-La Mancha',
-  'CL': 'Castilla y León',
-  'CT': 'Catalunya',
-  'CE': 'Ceuta',
-  'VC': 'Valenciana, Comunidad',
-  'EX': 'Extremadura',
-  'GA': 'Galicia',
-  'MD': 'Madrid, Comunidad de',
-  'ME': 'ME',
-  'MC': 'Murcia, Región de',
-  'NC': 'Navarra, Comunidad Foral de',
-  'PV': 'País Vasco',
-  'RI': 'RI',
-}; */
+  const REGION_NAMES = {
+  'AG': 'Aargau',
+  'AI': 'Appenzell Innerrhoden',
+  'AR': 'Appenzell Ausserrhoden',
+  'BE': 'Bern',
+  'BL': 'Basel-Landschaft',
+  'BS': 'Basel-Stadt',
+  'FR': 'Fribourg',
+  'GE': 'Geneva',
+  'GL': 'Glarus',
+  'GR': 'Graubünden; Grisons',
+  'Ju': 'Jura',
+  'LU': 'Luzern',
+  'NE': 'Neuchâtel',
+  'NW': 'Nidwalden',
+  'OW': 'Obwalden',
+  'SG': 'St. Gallen',
+  'SH': 'Schaffhausen',
+  'SO': 'Solothurn',
+  'TG': 'Thurgau',
+  'TI': 'Ticino',
+  'UR': 'Uri',
+  'VD': 'Vaud',
+  'VS': 'Valais',
+  'ZG': 'Zug',
+  'ZH': 'Zürich',
+  'CH': 'Switzerland',
+}; 
 
 function convert() {
-  const regionLabel = 'Region';
-  const dateLabel = 'Date du cas';
-  const casesLabel = 'Cas confirmé';
+  const regionLabel = "";
+  const dateLabel = 'Date';
+  const groupName = 'Switzerland';
+  //const casesLabel = dateLabel;
   //const deathsLabel = 'Fallecidos';
   const casesTable = {}; //deathsTable = {};
   fs.createReadStream(DATA_FILE)
     .pipe(csv())
     .on('data', (row) => {
-      const region = row[regionLabel];
-      if (!casesTable[region]) {
-        casesTable[region] = {
-          regionName: region,
-          groupName: "EU",
-          values: {},
+      console.log(JSON.stringify(row, null, 2));
+      let keys = Object.keys(row);
+      let date = row[dateLabel];
+      keys.forEach(regionName => {
+        //console.log(key + ' = ' + row[key]);
+        if (regionName === 'Date') {
+          return;
         };
-      }
-      /*if (!deathsTable[region]) {
-        deathsTable[region] = {
-          regionName: region,
-          groupName: "EU",
-          values: {},
-        };
-      }*/
-      const dateParts = row[dateLabel].split('/');
-      const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
-      const casesCount = row[casesLabel];
-      //const deathsCount = row[deathsLabel]; 
-      casesTable[region].values[date] = +casesCount || 0;
+        if (!casesTable[regionName]) {
+          casesTable[regionName] = {
+            regionName: regionName,
+            groupName: groupName,
+            values : {},
+          };
+
+          /*casesTable[key].regionName = key;
+          casesTable[key].groupName = 'Switzerland'; */
+        } 
+        casesTable[regionName].values[date] = +row[regionName] || 0;
+
+      })
+      console.log(JSON.stringify(casesTable, null, 2));
+      
+      //const dateParts = row[dateLabel].split('/');
+      //const date = dateParts.length === 3 && new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).toISOString().slice(0, 10) || null;
+      /*const casesCount = row[casesTable.values];
+      casesTable.values = +casesCount || 0;*/
       //deathsTable[region].values[date] = +deathsCount || 0;
       if (date === null) {
         delete casesTable[region];
@@ -122,6 +137,7 @@ function convert() {
     })
     .on('end', () => {
       const casesData = [],  deathsData = [];
+      //console.log(JSON.stringify(casesTable, null, 2));
       Object.keys(casesTable).forEach(key => {
         casesData.push(casesTable[key]);
         //deathsData.push(deathsTable[key]);

@@ -41,10 +41,10 @@ function clean() {
 }
 
 const FILES = [
- '../build/data/us-cases.json',
- '../build/data/us-deaths.json',
- '../build/data/spain-cases.json',
- '../build/data/spain-deaths.json',
+ //'../build/data/us-cases.json',
+ //'../build/data/us-deaths.json',
+ //'../build/data/spain-cases.json',
+ //'../build/data/spain-deaths.json',
   '../build/data/switzerland-cases.json',
 ];
 
@@ -263,6 +263,7 @@ function generate(file) {
   rows.forEach(row => {
     const region = row["regionName"];
     const group = row["groupName"];
+    console.log('row = ' + JSON.stringify(row, null, 2));
     const keys = Object.keys(row.values);
     const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
     const objNew = {
