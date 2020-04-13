@@ -120,6 +120,7 @@ function putComp(secret, data, resume) {
     res.on('data', function (chunk) {
       data += chunk;
     }).on('end', function () {
+      console.log("putComp() data=" + data);
       if (resume) {
         resume(null, JSON.parse(data));
       }
@@ -266,53 +267,45 @@ function generate(file) {
   const type = "cases";
   const chartID = getChartIDFromType(type);
   const data = {};
-  const regionNewCases = {
-    id: CASES_CHART_ID,
-    data: {
-      type: "new cases",
-      values: [
-      ]
-    }
-  };
   rows.forEach(row => {
-    const subRegion = row["regionName"];
-    const region = row["groupName"];
-    const fullName = region + ', ' + subRegion;
+    const region = row["regionName"];
+    const parent = row["groupName"];
+    const fullName = parent + ', ' + region;
     const keys = Object.keys(row.cases);
     const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
     const objNewCases = {
+      parent: parent,
       region: region,
-      subRegion: subRegion,
       type: 'new cases',
       values: [],
     };
     const objTotalCases = {
+      parent: parent,
       region: region,
-      subRegion: subRegion,
       type: 'total cases',
       values: [],
     };
     const objNewDeaths = {
+      parent: parent,
       region: region,
-      subRegion: subRegion,
       type: 'new deaths',
       values: [],
     };
     const objTotalDeaths = {
+      parent: parent,
       region: region,
-      subRegion: subRegion,
       type: 'total deaths',
       values: [],
     };
     let prevDate;
     let value;
     dates.forEach((date, i) => {
-      let currValCases = row.cases[date] || '0';
-      let prevValCases = row.cases[prevDate] || '0';
+      let currValCases = row.cases[date] || 0;
+      let prevValCases = row.cases[prevDate] || 0;
       let newValCases = currValCases - prevValCases;
       let totalValCases = currValCases;
-      let currValDeaths = row.deaths[date] || '0';
-      let prevValDeaths = row.deaths[prevDate] || '0';
+      let currValDeaths = row.deaths[date] || 0;
+      let prevValDeaths = row.deaths[prevDate] || 0;
       let newValDeaths = currValDeaths - prevValDeaths;
       let totalValDeaths = currValDeaths;  // Last one is the total.
       if (!isNaN(newValCases)) {
@@ -348,124 +341,201 @@ function generate(file) {
     date = new Date(prevDate);
     date.setDate(date.getDate() - objTotalCases.values.length + 1);
     if (+row.deaths[prevDate] >= THRESHOLD) {
-      if (!data[region]) {
-        data[region] = {};
+      if (!data[parent]) {
+        data[parent] = {
+          parent: country,
+          region: parent,
+          values: {},
+        };
       }
-      if (!data[region][subRegion]) {
-        data[region][subRegion] = {};
+      if (!data[parent].values[region]) {
+        data[parent].values[region] = {
+          parent: parent,
+          region: region,
+        };
       }
-      data[region][subRegion].newCases = {
+      data[parent].values[region].newCases = {
         id: CASES_CHART_ID,
+        parent: parent,
+        region: region,
         data: objNewCases,
       };
-      data[region][subRegion].totalCases = {
+      data[parent].values[region].totalCases = {
         id: CASES_CHART_ID,
+        parent: parent,
+        region: region,
         data: objTotalCases,
       };
-      data[region][subRegion].newDeaths = {
+      data[parent].values[region].newDeaths = {
         id: DEATHS_CHART_ID,
+        parent: parent,
+        region: region,
         data: objNewDeaths,
       };
-      data[region][subRegion].totalDeaths = {
+      data[parent].values[region].totalDeaths = {
         id: DEATHS_CHART_ID,
+        parent: parent,
+        region: region,
         data: objTotalDeaths,
       };
     }
   });
-   compileRegion({}, data, val => {
+  const keys = Object.keys(data);
+  console.log("keys=" + keys);
+  keys.forEach(regionName => {
+    const region = data[regionName];
+    compileRegion({}, region, () => {
+    });
   });
 }
 
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
+
 function compileRegion(schema, data, resume) {
-  console.log("compileRegion() data=" + JSON.stringify(data, null, 2));
-  // Compile a page with its subregions, and return aggregate data to roll up
-  // to the caller.
-  // data = [{id, data: {region, values}}]
+  // data = {subRegion1, subRegion2, ...}
+  // subRegion = {newCases, totalCases, newDeaths, totalDeaths}
+  // newCases = {id, data}
+  // data = {region, subRegion, type, values}
+  // values = [[Date, Count], ..]
   console.log("Compiling...");
-  let allIDs = [];
-  let totalCharts = data.length;
-  let count = 0;
-  let regionTable = {};   // { name, total, subregions, data }
-  let regions = [];
-  let regionItems = [];
-  data.forEach((v) => {
-    let [region, subregion] = v.data.region.split(",");
-    let values = v.data.values;
-    let total = 0;
-    regions.push(v.data);
-    values.forEach(v => {
-      total = !isNaN(+v[1]) && v[1] || 0;
-    });
-    if (!regionTable[region]) {
-      regionTable[region] = {
-        region: region,
-        total: 0,
-        subregions: [],
-      };
-    }
-    regionTable[region].subregions.push({
-      id: v.id,
-      type: v.data.type,
-      region: region,
-      subregion: subregion,
-      total: total,
-      data: {
-        region: region,
-        values: values,
-      },
-    });
-  });
-  Object.keys(regionTable).forEach(region => {
-    let data = regionTable[region].subregions;
-    data.sort((a, b) => {
-      return b.total - a.total;
-    });
-    let total = 0;
-    data.forEach(v => {
-      total += +v.total;  // Add total for each region.
-    });
-    regionTable[region].total = total;
-    regionItems.push(regionTable[region]);
-    putComp(secret, data, (err, valNew) => {
-      // Charts compiled.
-      const date = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(date.getDate() - 1);
-      let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
-      putCode(secret, {
-        language: "L116",
-        src: pageSrc,
-      }, async (err, val) => {
-        //console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
-        regionTable[region].id = val.id;
-        if (allIDs.length === totalCharts) {
-          // All subregion charts have been compiled. Now render region charts.
-          let frontPage = renderFrontPage(regionItems, date, yesterday);
-          putCode(secret, {
-            language: "L116",
-            src: frontPage,
-          }, async (err, val) => {
-            console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
-            resume({
-              country: country,
-              id: val.id
-            });
-            batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-              if (err) {
-                console.log("scrape() err=" + JSON.stringify(err));
-                reject(err);
-              } else {
-                console.log("done");
-                //console.log(JSON.stringify(regionTable, null, 2));
-              }
-            });
-          });
-        }
-      });
+  console.log("compileRegion() data=" + JSON.stringify(data, null, 2));
+  const names = Object.keys(data.values);
+  console.log("names=" + names);
+  names.forEach(name => {
+    // For each region, compile the charts of each sub region.
+    const subRegion = data.values[name];
+    compileSubRegion({}, subRegion, () => {
     });
   });
 }
+
+function compileSubRegion(schema, data, resume) {
+  console.log("compileSubRegion() parent=" + data.parent + " region=" + data.region);
+  console.log("compileSubRegion() data=" + JSON.stringify(data, null, 2));
+  const totalDeaths = data.totalDeaths;
+  const allIDs = [];  
+  putComp(secret, [totalDeaths], (err, valNew) => {
+    // Charts compiled.
+    const date = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(date.getDate() - 1);
+    let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
+    putCode(secret, {
+      language: "L116",
+      src: pageSrc,
+    }, async (err, val) => {
+      console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
+      // regionTable[region].id = val.id;
+      // if (allIDs.length === totalCharts) {
+      //   // All subregion charts have been compiled. Now render region charts.
+      //   let frontPage = renderFrontPage(regionItems, date, yesterday);
+      //   putCode(secret, {
+      //     language: "L116",
+      //     src: frontPage,
+      //   }, async (err, val) => {
+      //     console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
+      //     resume({
+      //       country: country,
+      //       id: val.id
+      //     });
+      //     batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
+      //       if (err) {
+      //         console.log("scrape() err=" + JSON.stringify(err));
+      //         reject(err);
+      //         } else {
+      //           console.log("done");
+      //           //console.log(JSON.stringify(regionTable, null, 2));
+      //         }
+      //     });
+      //   });
+      // }
+    });
+  });
+}
+
+//   let allIDs = [];
+//   let totalCharts = data.length;
+//   let count = 0;
+//   let regionTable = {};   // { name, total, subregions, data }
+//   let regions = [];
+//   let regionItems = [];
+//   data.forEach((v) => {
+//     let [region, subregion] = v.data.region.split(",");
+//     let values = v.data.values;
+//     let total = 0;
+//     regions.push(v.data);
+//     values.forEach(v => {
+//       total = !isNaN(+v[1]) && v[1] || 0;
+//     });
+//     if (!regionTable[region]) {
+//       regionTable[region] = {
+//         region: region,
+//         total: 0,
+//         subregions: [],
+//       };
+//     }
+//     regionTable[region].subregions.push({
+//       id: v.id,
+//       type: v.data.type,
+//       region: region,
+//       subregion: subregion,
+//       total: total,
+//       data: {
+//         region: region,
+//         values: values,
+//       },
+//     });
+//   });
+//   Object.keys(regionTable).forEach(region => {
+//     let data = regionTable[region].subregions;
+//     data.sort((a, b) => {
+//       return b.total - a.total;
+//     });
+//     let total = 0;
+//     data.forEach(v => {
+//       total += +v.total;  // Add total for each region.
+//     });
+//     regionTable[region].total = total;
+//     regionItems.push(regionTable[region]);
+//     putComp(secret, data, (err, valNew) => {
+//       // Charts compiled.
+//       const date = new Date();
+//       const yesterday = new Date();
+//       yesterday.setDate(date.getDate() - 1);
+//       let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
+//       putCode(secret, {
+//         language: "L116",
+//         src: pageSrc,
+//       }, async (err, val) => {
+//         //console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
+//         regionTable[region].id = val.id;
+//         if (allIDs.length === totalCharts) {
+//           // All subregion charts have been compiled. Now render region charts.
+//           let frontPage = renderFrontPage(regionItems, date, yesterday);
+//           putCode(secret, {
+//             language: "L116",
+//             src: frontPage,
+//           }, async (err, val) => {
+//             console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
+//             resume({
+//               country: country,
+//               id: val.id
+//             });
+//             batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
+//               if (err) {
+//                 console.log("scrape() err=" + JSON.stringify(err));
+//                 reject(err);
+//               } else {
+//                 console.log("done");
+//                 //console.log(JSON.stringify(regionTable, null, 2));
+//               }
+//             });
+//           });
+//         }
+//       });
+//     });
+//   });
+// }
 
 function renderFrontPage(items, now, yesterday) {
   // item = {region, total, id}
@@ -496,7 +566,7 @@ function renderRegionPage(items, now, yesterday, ids) {
   const itemsTable = {};
   const itemsNames = [];
   items.forEach(item => {
-    const name = item.subregion + ", " + item.region;
+    const name = item.parent + ", " + item.region;
     const type = item.type;
     if (!itemsTable[name]) {
       itemsTable[name] = {};
@@ -512,6 +582,7 @@ function renderRegionPage(items, now, yesterday, ids) {
   pageSrc += '],\n';
   let completed = 0;
   itemsNames.forEach(name => {
+    console.log("item=" + JSON.stringify(item, null, 2));
     let item = itemsTable[name];
     let newCasesItem = item["new cases"];
     let totalCasesItem = item["total cases"];
