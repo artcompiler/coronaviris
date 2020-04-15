@@ -396,13 +396,10 @@ function compile(schema, data, resume) {
   regionNames.forEach(regionName => {
     const region = data[regionName];
     compileRegion(schema, region, (err, val) => {
-      console.log("compile() val=" + JSON.stringify(val));
+//      console.log("compile() val=" + JSON.stringify(val));
       count++;
       if (count === regionNames.length) {
         console.log("compile() done regionName=" + regionName);
-        renderFrontPage(val, (err, val) => {
-          console.log("compile frontPage=" + val);
-        });
       }
       resume(err, val);
     });
@@ -414,21 +411,22 @@ function compileRegion(schema, data, resume) {
   const region = data.region;
   const values = data.values;
   const subRegionNames = Object.keys(values);
-  let count = 0;
   let items = [];
   subRegionNames.forEach(subRegionName => {
     // For each region, compile the charts of each sub region.
     const subRegion = data.values[subRegionName];
     compileSubRegion({}, subRegion, (err, val) => {
-      console.log("compileRegion() val=" + JSON.stringify(val));
-      count++;
       items.push({
-        parent: parent,
+        parent: region,
         region: subRegionName,
-        id: val.id
+        id: val.id,
+        pageSrc: val.pageSrc,
       });
-      if (count === subRegionNames.length) {
+      if (items.length === subRegionNames.length) {
         console.log("compileRegion() done region=" + region);
+        renderRegionPage(items, (err, val) => {
+          console.log("compile regionPage=" + val);
+        });
         resume(err, items);
       }
     });
@@ -442,41 +440,55 @@ function compileSubRegion(schema, data, resume) {
     const date = new Date();
     const yesterday = new Date();
     yesterday.setDate(date.getDate() - 1);
-    let pageSrc = renderRegionPage(val, date, yesterday, allIDs);
+    let pageSrc = renderSubRegionPage(val, date, yesterday, allIDs);
+    console.log("compileSubRegion() pageSrc=" + pageSrc);
+    let fullPageSrc = "";
+    fullPageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+//    fullPageSrc += 'title "COVID-19 in ' + items[0].region + ', ' + items[0].parent + '"';
+    fullPageSrc += pageSrc;
+    fullPageSrc += ".."
     putCode(secret, {
       language: "L116",
-      src: pageSrc,
+      src: fullPageSrc,
     }, async (err, val) => {
       console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
-      resume(err, val);
+      resume(err, {
+        id: val.id,
+        pageSrc: pageSrc,
+      });
     });
   });
 }
 
-function renderFrontPage(items, resume) {
+function renderRegionPage(items, resume) {
   // item = {region, total, id}
   const now = new Date();
   const yesterday = new Date();
   yesterday.setDate(now.getDate() - 1);
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-  pageSrc += "grid [\n";
-  pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
-  pageSrc += '],\n';
+  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"'; 
+//  pageSrc += "grid [\n";
+//  pageSrc += 'row twelve-columns [br, ';
+//  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+//  pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
-    let region = item.region;
+//    console.log("item=" + JSON.stringify(item, null, 2));
+    let region = item.region + ', ' + item.parent;
     pageSrc +=
-    'style { "fontSize": "12"} row twelve-columns [br, ' +
-      'href "form?id=' + item.id + '" "' + region + '"' +
-      'br, "' + item.total + ' total cases", br, ' +
-      ']\n';
+      item.pageSrc;
+    // 'style { "fontSize": "12"} row twelve-columns [br, ' +
+    //   'href "form?id=' + item.id + '" graffito "' + item.id + '", ' +
+    //   'br, "' + item.total + ' total cases", br, ' +
+    //   ']\n';
   });
-  pageSrc += "].."
+  //  pageSrc += "].."
+  pageSrc += "..";
+  console.log("renderRegionPage() pageSrc=" + pageSrc);
   putCode(secret, {
     language: "L116",
     src: pageSrc,
@@ -498,8 +510,9 @@ function renderFrontPage(items, resume) {
   });
 }
 
-function renderRegionPage(items, now, yesterday, ids) {
+function renderSubRegionPage(items, now, yesterday, ids) {
   // item = {region, subregion, total, id, type}
+  console.log("renderSubRegionPage() items[0]=" + JSON.stringify(items[0], null, 2));
   const itemsTable = {};
   const itemsNames = [];
   items.forEach(item => {
@@ -512,11 +525,12 @@ function renderRegionPage(items, now, yesterday, ids) {
     itemsTable[name][type] = item;
   });
   let pageSrc = "";
-  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+//  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+//  pageSrc += 'title "COVID-19 in ' + items[0].region + ', ' + items[0].parent + '"'; 
   pageSrc += "grid [\n";
-  pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
-  pageSrc += '],\n';
+//  pageSrc += 'row twelve-columns [br, ';
+//  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+//  pageSrc += '],\n';
   let completed = 0;
   itemsNames.forEach(name => {
     let item = itemsTable[name];
@@ -524,7 +538,7 @@ function renderRegionPage(items, now, yesterday, ids) {
     let totalCasesItem = item["total cases"];
     let newDeathsItem = item["new deaths"];
     let totalDeathsItem = item["total deaths"];
-    let region = newCasesItem.parent + ", " + newCasesItem.region;
+    let region = newCasesItem.region + ', ' + newCasesItem.parent;
     pageSrc += `
     style { "fontSize": 12, "height": 130 } row [
         two-columns [
@@ -567,7 +581,8 @@ function renderRegionPage(items, now, yesterday, ids) {
     ids.push(newDeathsItem.id);
     ids.push(totalDeathsItem.id);
   });
-  pageSrc += "].."
+  pageSrc += "]";
+//  pageSrc += ".."
   return pageSrc;
 }
 
