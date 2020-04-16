@@ -41,11 +41,11 @@ function clean() {
 }
 
 const FILES = [
-  '../build/data/us-cases.json',
-  '../build/data/us-deaths.json',
+//  '../build/data/us-cases.json',
+//  '../build/data/us-deaths.json',
   '../build/data/spain-cases.json',
-  '../build/data/spain-deaths.json',
-  '../build/data/switzerland-cases.json',
+//  '../build/data/spain-deaths.json',
+//  '../build/data/switzerland-cases.json',
 ];
 const SCALE = FILES.length;
 
