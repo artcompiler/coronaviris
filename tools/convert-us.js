@@ -104,9 +104,10 @@ function convert() {
         dates.forEach((d, i) => {
           const dateParts = d.split('/');
           const year = dateParts[2];
-          
           const date = dateParts.length === 3 && new Date(year.length === 2 && '20' + year || year, dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
-          region.caseValues[date] = +row[d];
+          if (date) {
+            region.caseValues[date] = +row[d];
+          }
         });
       });
       deathsData.forEach((row, i) => {

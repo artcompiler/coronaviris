@@ -299,6 +299,9 @@ function generate(file) {
     let prevDate;
     let value;
     dates.forEach((date, i) => {
+      if (date === 'null') {
+        return;
+      }
       let currValCases = row.cases[date] || 0;
       let prevValCases = row.cases[prevDate] || 0;
       let newValCases = currValCases - prevValCases;
