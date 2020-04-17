@@ -76,7 +76,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 500;
+const THRESHOLD = 10;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -394,19 +394,28 @@ function compile(schema, data, resume) {
   const regionNames = Object.keys(data);
   let count = 0;
   let chartIDs = [];
+  let items = [];
   regionNames.forEach(regionName => {
     const region = data[regionName];
     compileRegion(schema, region, (err, val) => {
+      items.push({
+        id: val.pageID,
+        region: regionName,
+        totalCases: val.totalCases,
+        totalDeaths: val.totalDeaths,
+      });
       chartIDs = chartIDs.concat(val.chartIDs);
       count++;
       if (count === regionNames.length) {
-        batchScrape(SCALE, false, chartIDs, 0, (err, obj) => {
-          if (err) {
-            console.log("scrape() err=" + JSON.stringify(err));
-            reject(err);
-          } else {
-            console.log("done");
-          }
+        renderTopPage(items, (err, val) => {
+          batchScrape(SCALE, false, chartIDs, 0, (err, obj) => {
+            if (err) {
+              console.log("scrape() err=" + JSON.stringify(err));
+              reject(err);
+            } else {
+              console.log("done");
+            }
+          });
         });
       }
       resume(err, val);
@@ -421,6 +430,7 @@ function compileRegion(schema, data, resume) {
   const subRegionNames = Object.keys(values);
   const items = [];
   let chartIDs = [];
+  let totalCases = 0, totalDeaths = 0;
   subRegionNames.forEach(subRegionName => {
     // For each region, compile the charts of each sub region.
     const subRegion = data.values[subRegionName];
@@ -432,12 +442,17 @@ function compileRegion(schema, data, resume) {
         pageSrc: val.pageSrc,
       });
       chartIDs = chartIDs.concat(val.chartIDs);
+      totalCases += val.totalCases;
+      totalDeaths += val.totalDeaths;
       if (items.length === subRegionNames.length) {
         renderRegionPage(items, (err, val) => {
           resume(err, {
+            pageID: val.id,
             items: items,
-            chartIDs: chartIDs
-          });   
+            chartIDs: chartIDs,
+            totalCases: totalCases,
+            totalDeaths: totalDeaths,
+          });
         });
       }
     });
@@ -450,7 +465,69 @@ function compileSubRegion(schema, data, resume) {
     const date = new Date();
     const yesterday = new Date();
     yesterday.setDate(date.getDate() - 1);
-    renderSubRegionPage(val, date, yesterday, resume);
+//    console.log("compileSubRegion() data=" + JSON.stringify(data, null, 2));
+    const totalCasesValues = data.totalCases.data.values;
+    const totalDeathsValues = data.totalDeaths.data.values;
+    renderSubRegionPage(val, date, yesterday, (err, val) => {
+      val.totalCases = totalCasesValues[totalCasesValues.length - 1][1],
+      val.totalDeaths = totalDeathsValues[totalDeathsValues.length - 1][1],
+      resume(err, val)
+    });
+  });
+}
+
+function formatNumber(val) {
+  val = "" + val;
+  console.log("formatNumber() val=" + val);
+  formatted = "";
+  for (let i = 0; i < val.length; i++) {
+    if (i !== 0 && (val.length - i) % 3 === 0) {
+      formatted += ",";
+    }
+    formatted += val[i];
+  }
+  return formatted;
+}
+
+function renderTopPage(items, resume) {
+  console.log("renderTopPage() items=" + JSON.stringify(items, null, 2))
+  // item = {region, total, id}
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  let pageSrc = "";
+  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"';
+  pageSrc += "grid [\n";
+  pageSrc += 'row twelve-columns [br, ';
+  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  pageSrc += '],\n';
+  let completed = 0;
+  items.sort((a, b) => {
+    console.log("renderTopPage() a=" + JSON.stringify(a));
+    return b.totalDeaths - a.totalDeaths;
+  });
+  items && items.length && items.forEach((item, i) => {
+    // console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
+    let region = item.region;
+    pageSrc += `
+    style { "fontSize": "12"} row twelve-columns [
+      br, 
+      href "form?id=${item.id}" "${region}",
+      br,
+      "${formatNumber(item.totalDeaths)} Deaths",
+      br,
+      "${formatNumber(item.totalCases)} Cases"
+    ]
+    `;
+  });
+  pageSrc += "].."
+  putCode(secret, {
+    language: "L116",
+    src: pageSrc,
+  }, async (err, val) => {
+    console.log("PUT /comp Top Page: https://gc.acx.ac/form?id=" + val.id);
+    resume(err, val);
   });
 }
 
@@ -472,11 +549,6 @@ function renderRegionPage(items, resume) {
   });
   items && items.length && items.forEach((item, i) => {
     let region = item.region + ', ' + item.parent;
-    // pageSrc +=
-    //   'style { "fontSize": "12"} row twelve-columns [br, ' +
-    //   'href "form?id=' + item.id + '" graffito "' + item.id + '", ' +
-    //   'br, "' + item.total + ' total cases", br, ' +
-    //   ']\n';
     pageSrc += item.pageSrc;
   });
   pageSrc += "].."
@@ -518,16 +590,16 @@ function renderSubRegionPage(items, now, yesterday, resume) {
           br, "${yesterday.toUTCString().slice(0, 16)}"
         ]
         five-columns [
-          br, br, br, style {"fontWeight": 600, "opacity": .4} "NEW",
+          br, br, br, style {"fontWeight": 600, "opacity": .6} "NEW",
         ],
         five-columns [
-          br, br, br, style {"fontWeight": 600, "opacity": .4} "TOTAL",
+          br, br, br, style {"fontWeight": 600, "opacity": .6} "TOTAL",
         ]
       ]`;
     pageSrc += `
       style { "fontSize": 12, "height": 175} row [
         two-columns [
-          br, style {"fontWeight": 600, "opacity": .4} "CASES",
+          br, style {"fontWeight": 600, "opacity": .6} "CASES",
         ],
         five-columns [
           href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
@@ -539,10 +611,10 @@ function renderSubRegionPage(items, now, yesterday, resume) {
     pageSrc += `
       style { "fontSize": 12, "height": 175} row [
         two-columns [
-          br, style {"fontWeight": 600, "opacity": .4} "DEATHS",
+          br, style {"fontWeight": 600, "opacity": .6} "DEATHS",
         ],
         five-columns [
-          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png",
+          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png", 
         ],
         five-columns [
           href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
@@ -560,114 +632,3 @@ function renderSubRegionPage(items, now, yesterday, resume) {
 }
 
 build();
-
-
-      // regionTable[region].id = val.id;
-      // if (allIDs.length === totalCharts) {
-      //   // All subregion charts have been compiled. Now render region charts.
-      //   let frontPage = renderFrontPage(regionItems, date, yesterday);
-      //   putCode(secret, {
-      //     language: "L116",
-      //     src: frontPage,
-      //   }, async (err, val) => {
-      //     console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
-      //     resume({
-      //       country: country,
-      //       id: val.id
-      //     });
-      //     batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-      //       if (err) {
-      //         console.log("scrape() err=" + JSON.stringify(err));
-      //         reject(err);
-      //         } else {
-      //           console.log("done");
-      //           //console.log(JSON.stringify(regionTable, null, 2));
-      //         }
-      //     });
-      //   });
-      // }
-
-//   let allIDs = [];
-//   let totalCharts = data.length;
-//   let count = 0;
-//   let regionTable = {};   // { name, total, subregions, data }
-//   let regions = [];
-//   let regionItems = [];
-//   data.forEach((v) => {
-//     let [region, subregion] = v.data.region.split(",");
-//     let values = v.data.values;
-//     let total = 0;
-//     regions.push(v.data);
-//     values.forEach(v => {
-//       total = !isNaN(+v[1]) && v[1] || 0;
-//     });
-//     if (!regionTable[region]) {
-//       regionTable[region] = {
-//         region: region,
-//         total: 0,
-//         subregions: [],
-//       };
-//     }
-//     regionTable[region].subregions.push({
-//       id: v.id,
-//       type: v.data.type,
-//       region: region,
-//       subregion: subregion,
-//       total: total,
-//       data: {
-//         region: region,
-//         values: values,
-//       },
-//     });
-//   });
-//   Object.keys(regionTable).forEach(region => {
-//     let data = regionTable[region].subregions;
-//     data.sort((a, b) => {
-//       return b.total - a.total;
-//     });
-//     let total = 0;
-//     data.forEach(v => {
-//       total += +v.total;  // Add total for each region.
-//     });
-//     regionTable[region].total = total;
-//     regionItems.push(regionTable[region]);
-//     putComp(secret, data, (err, valNew) => {
-//       // Charts compiled.
-//       const date = new Date();
-//       const yesterday = new Date();
-//       yesterday.setDate(date.getDate() - 1);
-//       let pageSrc = renderRegionPage(valNew, date, yesterday, allIDs);
-//       putCode(secret, {
-//         language: "L116",
-//         src: pageSrc,
-//       }, async (err, val) => {
-//         //console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
-//         regionTable[region].id = val.id;
-//         if (allIDs.length === totalCharts) {
-//           // All subregion charts have been compiled. Now render region charts.
-//           let frontPage = renderFrontPage(regionItems, date, yesterday);
-//           putCode(secret, {
-//             language: "L116",
-//             src: frontPage,
-//           }, async (err, val) => {
-//             console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
-//             resume({
-//               country: country,
-//               id: val.id
-//             });
-//             batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-//               if (err) {
-//                 console.log("scrape() err=" + JSON.stringify(err));
-//                 reject(err);
-//               } else {
-//                 console.log("done");
-//                 //console.log(JSON.stringify(regionTable, null, 2));
-//               }
-//             });
-//           });
-//         }
-//       });
-//     });
-//   });
-// }
-
