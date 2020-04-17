@@ -5,7 +5,7 @@
    -- Render group charts
    -- Add demographic data
    -- Add attribution
-   -- 
+   --
 */
 const https = require('https');
 const http = require('http');
@@ -76,7 +76,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 1000;
+const THRESHOLD = 500;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -357,28 +357,28 @@ function generate(file) {
         id: CASES_CHART_ID,
         parent: parent,
         region: region,
-        type: "new cases", 
+        type: "new cases",
         data: objNewCases,
       };
       data[parent].values[region].totalCases = {
         id: CASES_CHART_ID,
         parent: parent,
         region: region,
-        type: "total cases", 
+        type: "total cases",
         data: objTotalCases,
       };
       data[parent].values[region].newDeaths = {
         id: DEATHS_CHART_ID,
         parent: parent,
         region: region,
-        type: "new deaths", 
+        type: "new deaths",
         data: objNewDeaths,
       };
       data[parent].values[region].totalDeaths = {
         id: DEATHS_CHART_ID,
         parent: parent,
         region: region,
-        type: "total deaths", 
+        type: "total deaths",
         data: objTotalDeaths,
       };
     }
@@ -393,13 +393,21 @@ function compile(schema, data, resume) {
   console.log("Compiling...");
   const regionNames = Object.keys(data);
   let count = 0;
+  let chartIDs = [];
   regionNames.forEach(regionName => {
     const region = data[regionName];
     compileRegion(schema, region, (err, val) => {
-//      console.log("compile() val=" + JSON.stringify(val));
+      chartIDs = chartIDs.concat(val.chartIDs);
       count++;
       if (count === regionNames.length) {
-        console.log("compile() done regionName=" + regionName);
+        batchScrape(SCALE, false, chartIDs, 0, (err, obj) => {
+          if (err) {
+            console.log("scrape() err=" + JSON.stringify(err));
+            reject(err);
+          } else {
+            console.log("done");
+          }
+        });
       }
       resume(err, val);
     });
@@ -411,7 +419,8 @@ function compileRegion(schema, data, resume) {
   const region = data.region;
   const values = data.values;
   const subRegionNames = Object.keys(values);
-  let items = [];
+  const items = [];
+  let chartIDs = [];
   subRegionNames.forEach(subRegionName => {
     // For each region, compile the charts of each sub region.
     const subRegion = data.values[subRegionName];
@@ -422,41 +431,26 @@ function compileRegion(schema, data, resume) {
         id: val.id,
         pageSrc: val.pageSrc,
       });
+      chartIDs = chartIDs.concat(val.chartIDs);
       if (items.length === subRegionNames.length) {
-        console.log("compileRegion() done region=" + region);
         renderRegionPage(items, (err, val) => {
-          console.log("compile regionPage=" + val);
+          resume(err, {
+            items: items,
+            chartIDs: chartIDs
+          });   
         });
-        resume(err, items);
       }
     });
   });
 }
 
 function compileSubRegion(schema, data, resume) {
-  const allIDs = [];  
+  const ids = [];
   putComp(secret, [data.newCases, data.totalCases, data.newDeaths, data.totalDeaths], (err, val) => {
-    // Charts compiled.
     const date = new Date();
     const yesterday = new Date();
     yesterday.setDate(date.getDate() - 1);
-    let pageSrc = renderSubRegionPage(val, date, yesterday, allIDs);
-    console.log("compileSubRegion() pageSrc=" + pageSrc);
-    let fullPageSrc = "";
-    fullPageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-//    fullPageSrc += 'title "COVID-19 in ' + items[0].region + ', ' + items[0].parent + '"';
-    fullPageSrc += pageSrc;
-    fullPageSrc += ".."
-    putCode(secret, {
-      language: "L116",
-      src: fullPageSrc,
-    }, async (err, val) => {
-      console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
-      resume(err, {
-        id: val.id,
-        pageSrc: pageSrc,
-      });
-    });
+    renderSubRegionPage(val, date, yesterday, resume);
   });
 }
 
@@ -467,54 +461,38 @@ function renderRegionPage(items, resume) {
   yesterday.setDate(now.getDate() - 1);
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"'; 
-//  pageSrc += "grid [\n";
-//  pageSrc += 'row twelve-columns [br, ';
-//  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
-//  pageSrc += '],\n';
+  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"';
+  pageSrc += "grid [\n";
+  pageSrc += 'row twelve-columns [br, ';
+  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
     return b.total - a.total;
   });
   items && items.length && items.forEach((item, i) => {
-//    console.log("item=" + JSON.stringify(item, null, 2));
     let region = item.region + ', ' + item.parent;
-    pageSrc +=
-      item.pageSrc;
-    // 'style { "fontSize": "12"} row twelve-columns [br, ' +
+    // pageSrc +=
+    //   'style { "fontSize": "12"} row twelve-columns [br, ' +
     //   'href "form?id=' + item.id + '" graffito "' + item.id + '", ' +
     //   'br, "' + item.total + ' total cases", br, ' +
     //   ']\n';
+    pageSrc += item.pageSrc;
   });
-  //  pageSrc += "].."
-  pageSrc += "..";
-  console.log("renderRegionPage() pageSrc=" + pageSrc);
+  pageSrc += "].."
   putCode(secret, {
     language: "L116",
     src: pageSrc,
   }, async (err, val) => {
     console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
-    // resume({
-    //   country: country,
-    //   id: val.id
-    // });
-    // batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-    //   if (err) {
-    //     console.log("scrape() err=" + JSON.stringify(err));
-    //     reject(err);
-    //           } else {
-    //             console.log("done");
-    //             //console.log(JSON.stringify(regionTable, null, 2));
-    //           }
-    // });
+    resume(err, val);
   });
 }
 
-function renderSubRegionPage(items, now, yesterday, ids) {
-  // item = {region, subregion, total, id, type}
-  console.log("renderSubRegionPage() items[0]=" + JSON.stringify(items[0], null, 2));
+function renderSubRegionPage(items, now, yesterday, resume) {
   const itemsTable = {};
   const itemsNames = [];
+  const ids = [];
   items.forEach(item => {
     const name = item.parent + ", " + item.region;
     const type = item.type;
@@ -525,12 +503,6 @@ function renderSubRegionPage(items, now, yesterday, ids) {
     itemsTable[name][type] = item;
   });
   let pageSrc = "";
-//  pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-//  pageSrc += 'title "COVID-19 in ' + items[0].region + ', ' + items[0].parent + '"'; 
-  pageSrc += "grid [\n";
-//  pageSrc += 'row twelve-columns [br, ';
-//  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
-//  pageSrc += '],\n';
   let completed = 0;
   itemsNames.forEach(name => {
     let item = itemsTable[name];
@@ -581,9 +553,10 @@ function renderSubRegionPage(items, now, yesterday, ids) {
     ids.push(newDeathsItem.id);
     ids.push(totalDeathsItem.id);
   });
-  pageSrc += "]";
-//  pageSrc += ".."
-  return pageSrc;
+  resume([], {
+    pageSrc: pageSrc,
+    chartIDs: ids,
+  });
 }
 
 build();
