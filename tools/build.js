@@ -481,7 +481,6 @@ function compileSubRegion(schema, data, resume) {
 
 function formatNumber(val) {
   val = "" + val;
-  console.log("formatNumber() val=" + val);
   formatted = "";
   for (let i = 0; i < val.length; i++) {
     if (i !== 0 && (val.length - i) % 3 === 0) {
@@ -493,21 +492,19 @@ function formatNumber(val) {
 }
 
 function renderTopPage(items, resume) {
-  console.log("renderTopPage() items=" + JSON.stringify(items, null, 2))
   // item = {region, total, id}
   const now = new Date();
   const yesterday = new Date();
   yesterday.setDate(now.getDate() - 1);
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
-  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"';
+  pageSrc += 'title "COVID-19"';
   pageSrc += "grid [\n";
   pageSrc += 'row twelve-columns [br, ';
   pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
-    console.log("renderTopPage() a=" + JSON.stringify(a));
     return b.totalDeaths - a.totalDeaths;
   });
   items && items.length && items.forEach((item, i) => {
@@ -559,7 +556,7 @@ function renderRegionPage(items, resume) {
     language: "L116",
     src: pageSrc,
   }, async (err, val) => {
-    console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
+    // console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
     resume(err, val);
   });
 }
@@ -602,7 +599,7 @@ function renderSubRegionPage(items, now, yesterday, resume) {
     pageSrc += `
       style { "fontSize": 12, "height": 175} row [
         two-columns [
-          br, style {"fontWeight": 600, "opacity": .6} "CASES",
+          style {"fontWeight": 600, "opacity": .6} "CASES",
         ],
         five-columns [
           href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
@@ -614,7 +611,7 @@ function renderSubRegionPage(items, now, yesterday, resume) {
     pageSrc += `
       style { "fontSize": 12, "height": 175} row [
         two-columns [
-          br, style {"fontWeight": 600, "opacity": .6} "DEATHS",
+          style {"fontWeight": 600, "opacity": .6} "DEATHS",
         ],
         five-columns [
           href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png", 
