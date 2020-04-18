@@ -61,7 +61,7 @@ function build() {
   });
 }
 
-const DATE_RANGE = 29;
+const DATE_RANGE = 30;  // 28 + 2 (for three day averaging of the first value)
 
 const DEATHS_TYPE = "deaths";
 const CASES_TYPE = "cases";
@@ -76,7 +76,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 2;
+const THRESHOLD = 100;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -302,6 +302,7 @@ function generate(file) {
       if (date === 'null') {
         return;
       }
+      console.log("generate() date=" + date);
       let currValCases = row.cases[date] || 0;
       let prevValCases = row.cases[prevDate] || 0;
       let newValCases = currValCases - prevValCases;
@@ -443,6 +444,8 @@ function compileRegion(schema, data, resume) {
         region: subRegionName,
         id: val.id,
         pageSrc: val.pageSrc,
+        totalCases: val.totalCases,
+        totalDeaths: val.totalDeaths,
       });
       chartIDs = chartIDs.concat(val.chartIDs);
       totalCases += val.totalCases;
@@ -545,7 +548,7 @@ function renderRegionPage(items, resume) {
   pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
-    return b.total - a.total;
+    return b.totalDeaths - a.totalDeaths;
   });
   items && items.length && items.forEach((item, i) => {
     let region = item.region + ', ' + item.parent;
@@ -556,7 +559,6 @@ function renderRegionPage(items, resume) {
     language: "L116",
     src: pageSrc,
   }, async (err, val) => {
-    // console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
     resume(err, val);
   });
 }
@@ -599,18 +601,6 @@ function renderSubRegionPage(items, now, yesterday, resume) {
     pageSrc += `
       style { "fontSize": 12, "height": 175} row [
         two-columns [
-          style {"fontWeight": 600, "opacity": .6} "CASES",
-        ],
-        five-columns [
-          href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
-        ],
-        five-columns [
-          href "form?id=${totalCasesItem.id}" resize img "https://cdn.acx.ac/${totalCasesItem.id}.png",
-        ]
-      ]`;
-    pageSrc += `
-      style { "fontSize": 12, "height": 175} row [
-        two-columns [
           style {"fontWeight": 600, "opacity": .6} "DEATHS",
         ],
         five-columns [
@@ -618,6 +608,18 @@ function renderSubRegionPage(items, now, yesterday, resume) {
         ],
         five-columns [
           href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
+        ]
+      ]`;
+    pageSrc += `
+      style { "fontSize": 12, "height": 175} row [
+        two-columns [
+          style {"fontWeight": 600, "opacity": .6} "CASES",
+        ],
+        five-columns [
+          href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
+        ],
+        five-columns [
+          href "form?id=${totalCasesItem.id}" resize img "https://cdn.acx.ac/${totalCasesItem.id}.png",
         ]
       ]`;
     ids.push(newCasesItem.id);

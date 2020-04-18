@@ -47,7 +47,7 @@ function build() {
   convert();
 }
 
-const DATE_RANGE = 29;
+const DATE_RANGE = 31;
 
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
@@ -99,7 +99,7 @@ function convert() {
           region.deathValues = {};
         }
         const keys = Object.keys(row);
-        const dates = keys.slice(keys.length - 29);
+        const dates = keys.slice(keys.length - DATE_RANGE);
         const cases = {}, deaths = {};
         dates.forEach((d, i) => {
           const dateParts = d.split('/');
@@ -123,7 +123,7 @@ function convert() {
           region.deathValues = {};
         }
         const keys = Object.keys(row);
-        const dates = keys.slice(keys.length - 29);
+        const dates = keys.slice(keys.length - DATE_RANGE);
         const cases = {}, deaths = {};
         dates.forEach((d, i) => {
           const dateParts = d.split('/');
@@ -154,7 +154,7 @@ function convert() {
   //     const regionName = row["County Name"];
   //     const values = {};
   //     const keys = Object.keys(row);
-  //     const dates = keys.slice(keys.length - 29);
+  //     const dates = keys.slice(keys.length - DATE_RANGE);
   //     dates.forEach((d, i) => {
   //       const dateParts = d.split('/');
   //       const year = dateParts[2];
