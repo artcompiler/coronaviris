@@ -76,7 +76,7 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 100;
+const THRESHOLD = 5;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -298,16 +298,27 @@ function generate(file) {
     };
     let prevDate;
     let value;
+    let rawCaseValues = [0, 0, 0];
+    let rawDeathValues = [0, 0, 0];
+    function rollingAvg(vals, val) {
+      vals.push(val);
+      const len = vals.length;
+      const avg = Math.ceil((vals[len - 1] + vals[len - 2] + vals[len - 1]) / 3);
+      if (vals[len - 1] - vals[len - 2] < 0) {
+        console.log("rollingAvg() vals=" + vals.slice(len - 3) + " avg=" + avg);
+      }
+     return val > avg && val || avg;
+    }
     dates.forEach((date, i) => {
       if (date === 'null') {
         return;
       }
-      console.log("generate() date=" + date);
-      let currValCases = row.cases[date] || 0;
-      let prevValCases = row.cases[prevDate] || 0;
+      // Smoothing: add last three raw values, divide by three and get the ceiling of the result.
+      let currValCases = row.cases[date] = rollingAvg(rawCaseValues, row.cases[date] || 0);
+      let prevValCases = row.cases[prevDate] || 0;  // Already been averaged.
       let newValCases = currValCases - prevValCases;
       let totalValCases = currValCases;
-      let currValDeaths = row.deaths[date] || 0;
+      let currValDeaths = row.deaths[date] = rollingAvg(rawDeathValues, row.deaths[date] || 0);
       let prevValDeaths = row.deaths[prevDate] || 0;
       let newValDeaths = currValDeaths - prevValDeaths;
       let totalValDeaths = currValDeaths;  // Last one is the total.
@@ -515,7 +526,7 @@ function renderTopPage(items, resume) {
     let region = item.region;
     pageSrc += `
     style { "fontSize": "12"} row twelve-columns [
-      br, 
+      br,
       href "form?id=${item.id}" "${region}",
       br,
       "${formatNumber(item.totalDeaths)} Deaths",
@@ -604,7 +615,7 @@ function renderSubRegionPage(items, now, yesterday, resume) {
           style {"fontWeight": 600, "opacity": .6} "DEATHS",
         ],
         five-columns [
-          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png", 
+          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png",
         ],
         five-columns [
           href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
