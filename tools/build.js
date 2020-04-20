@@ -63,8 +63,8 @@ function build() {
 
 const DATE_RANGE = 30;  // 28 + 2 (for three day averaging of the first value)
 
-const DEATHS_TYPE = "deaths";
-const CASES_TYPE = "cases";
+const DEATHS_TYPE = "Deaths";
+const CASES_TYPE = "Cases";
 
 const US_REGION = "US";
 const UK_REGION = "UK";
@@ -72,11 +72,11 @@ const SPAIN_REGION = "Spain";
 
 const NEW = false;
 
-const DEATHS_CHART_ID = "4LJhbQ57mSw";
-const CASES_CHART_ID = "1MNSpQ7RXHN";
+const DEATHS_CHART_ID = "wwaCz9dmAtq";
+const CASES_CHART_ID = "nKyT2lYNmIV";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 5;
+const THRESHOLD = 3;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -275,25 +275,25 @@ function generate(file) {
     const objNewCases = {
       parent: parent,
       region: region,
-      type: 'new cases',
+      type: 'New Cases',
       values: [],
     };
     const objTotalCases = {
       parent: parent,
       region: region,
-      type: 'total cases',
+      type: 'Total Cases',
       values: [],
     };
     const objNewDeaths = {
       parent: parent,
       region: region,
-      type: 'new deaths',
+      type: 'New Deaths',
       values: [],
     };
     const objTotalDeaths = {
       parent: parent,
       region: region,
-      type: 'total deaths',
+      type: 'Total Deaths',
       values: [],
     };
     let prevDate;
@@ -304,10 +304,7 @@ function generate(file) {
       vals.push(val);
       const len = vals.length;
       const avg = Math.ceil((vals[len - 1] + vals[len - 2] + vals[len - 1]) / 3);
-      if (vals[len - 1] - vals[len - 2] < 0) {
-        console.log("rollingAvg() vals=" + vals.slice(len - 3) + " avg=" + avg);
-      }
-     return val > avg && val || avg;
+      return val > avg && val || avg;
     }
     dates.forEach((date, i) => {
       if (date === 'null') {
@@ -372,28 +369,28 @@ function generate(file) {
         id: CASES_CHART_ID,
         parent: parent,
         region: region,
-        type: "new cases",
+        type: "New Cases",
         data: objNewCases,
       };
       data[parent].values[region].totalCases = {
         id: CASES_CHART_ID,
         parent: parent,
         region: region,
-        type: "total cases",
+        type: "Total Cases",
         data: objTotalCases,
       };
       data[parent].values[region].newDeaths = {
         id: DEATHS_CHART_ID,
         parent: parent,
         region: region,
-        type: "new deaths",
+        type: "New Deaths",
         data: objNewDeaths,
       };
       data[parent].values[region].totalDeaths = {
         id: DEATHS_CHART_ID,
         parent: parent,
         region: region,
-        type: "total deaths",
+        type: "Total Deaths",
         data: objTotalDeaths,
       };
     }
@@ -482,7 +479,6 @@ function compileSubRegion(schema, data, resume) {
     const date = new Date();
     const yesterday = new Date();
     yesterday.setDate(date.getDate() - 1);
-//    console.log("compileSubRegion() data=" + JSON.stringify(data, null, 2));
     const totalCasesValues = data.totalCases.data.values;
     const totalDeathsValues = data.totalDeaths.data.values;
     renderSubRegionPage(val, date, yesterday, (err, val) => {
@@ -522,7 +518,6 @@ function renderTopPage(items, resume) {
     return b.totalDeaths - a.totalDeaths;
   });
   items && items.length && items.forEach((item, i) => {
-    // console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
     pageSrc += `
     style { "fontSize": "12"} row twelve-columns [
@@ -591,45 +586,33 @@ function renderSubRegionPage(items, now, yesterday, resume) {
   let completed = 0;
   itemsNames.forEach(name => {
     let item = itemsTable[name];
-    let newCasesItem = item["new cases"];
-    let totalCasesItem = item["total cases"];
-    let newDeathsItem = item["new deaths"];
-    let totalDeathsItem = item["total deaths"];
+    let newCasesItem = item["New Cases"];
+    let totalCasesItem = item["Total Cases"];
+    let newDeathsItem = item["New Deaths"];
+    let totalDeathsItem = item["Total Deaths"];
     let region = newCasesItem.region + ', ' + newCasesItem.parent;
     pageSrc += `
-    style { "fontSize": 12, "height": 130 } row [
-        two-columns [
-          br, style {"fontWeight": 600} "${region}",
+    style {"fontSize": 12, "height": 100, "textAlign": "center"} row [
+        twelve-columns [
+          br, br, br, style {"fontWeight": 600} "${region}",
           br, "${yesterday.toUTCString().slice(0, 16)}"
-        ]
-        five-columns [
-          br, br, br, style {"fontWeight": 600, "opacity": .6} "NEW",
-        ],
-        five-columns [
-          br, br, br, style {"fontWeight": 600, "opacity": .6} "TOTAL",
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12, "height": 175} row [
-        two-columns [
-          style {"fontWeight": 600, "opacity": .6} "DEATHS",
-        ],
-        five-columns [
+      style { "fontSize": 12, "height": 175, "textAlign": "center"} row [
+        six-columns [
           href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png",
         ],
-        five-columns [
+        six-columns [
           href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
         ]
       ]`;
     pageSrc += `
-      style { "fontSize": 12, "height": 175} row [
-        two-columns [
-          style {"fontWeight": 600, "opacity": .6} "CASES",
-        ],
-        five-columns [
+      style { "fontSize": 12, "height": 175, "textAlign": "center"} row [
+        six-columns [
           href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
         ],
-        five-columns [
+        six-columns [
           href "form?id=${totalCasesItem.id}" resize img "https://cdn.acx.ac/${totalCasesItem.id}.png",
         ]
       ]`;
