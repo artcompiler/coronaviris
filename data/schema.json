@@ -1,51 +1,66 @@
-[{
-  "North America": {
+{
+  "World": {
     "_": {
-      "abbreviation": "NA",
-      "type": "continent",
+      "source": "ECDC",
       "schema": [
-        "country",
+        "America",
+        "Asia",
+        "Africa",
+        "Europe",
+        "Australia",
+        "Antartica"
       ]
     },
-    "United States": {
+    "America": {
       "_": {
-        "abbreviation": "US",
-        "type": "country",
-        "source": "",
-        "converter": "convert-us",
+        "abbreviation": "NA",
+        "type": "continent",
         "schema": [
-          "state",
+          "country",
         ]
       },
-      "Washington": {
+      "United States": {
         "_": {
-          "abbreviation": "WA",
-          "type": "state",
+          "abbreviation": "US",
+          "type": "country",
+          "source": "",
+          "converter": "convert-us",
           "schema": [
-            "county"
+            "state",
           ]
         },
-        "Kitsap County": {
+        "Washington": {
           "_": {
-            "type": "county",
-            "data": "kitsap.org/data.csv",
-            "converter": "convert-wa-katsip",
-            "schema": [],
+            "abbreviation": "WA",
+            "type": "state",
+            "schema": [
+              "county"
+            ]
+          },
+          "Kitsap County": {
+            "_": {
+              "type": "county",
+              "data": "kitsap.org/data.csv",
+              "converter": "convert-wa-katsip",
+              "schema": [],
+            }
           }
-        }
+        },
       },
+      "Canada": {
+      },
+      "Mexico": {
+      }
     },
-    "Canada": {
+    "Africa": {
     },
-    "Mexico": {
-    }
-  },
-  "Europe": {
-    "England": {
-    },
-    "France": {
-    },
-    "Spain": {
+    "Europe": {
+      "England": {
+      },
+      "France": {
+      },
+      "Spain": {
+      }
     }
   }
-}]
+}
