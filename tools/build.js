@@ -47,8 +47,8 @@ function clean() {
 }
 
 const FILES = [
-//  '../build/data/us.json',
   '../build/data/nyt-us-states.json',
+  '../build/data/us.json',
 //  '../build/data/spain-cases.json',
 //  '../build/data/spain-deaths.json',
 //  '../build/data/switzerland-cases.json',
@@ -263,6 +263,7 @@ function getChartIDFromType(type) {
 function generate(file) {
   const rows = require(file);
   const fileName = file.split('/').pop();
+  const dataSource = rows[0].dataSource;
   const [country] = fileName.toLowerCase().split("-");
   const type = "cases";
   const chartID = getChartIDFromType(type);
@@ -312,11 +313,13 @@ function generate(file) {
         return;
       }
       // Smoothing: add last three raw values, divide by three and get the ceiling of the result.
-      let currValCases = row.cases[date] = rollingAvg(rawCaseValues, row.cases[date] || 0);
+//      let currValCases = row.cases[date] = rollingAvg(rawCaseValues, row.cases[date] || 0);
+      let currValCases = row.cases[date] || 0;
       let prevValCases = row.cases[prevDate] || 0;  // Already been averaged.
       let newValCases = currValCases - prevValCases;
       let totalValCases = currValCases;
-      let currValDeaths = row.deaths[date] = rollingAvg(rawDeathValues, row.deaths[date] || 0);
+//      let currValDeaths = row.deaths[date] = rollingAvg(rawDeathValues, row.deaths[date] || 0);
+      let currValDeaths = row.deaths[date] || 0;
       let prevValDeaths = row.deaths[prevDate] || 0;
       let newValDeaths = currValDeaths - prevValDeaths;
       let totalValDeaths = currValDeaths;  // Last one is the total.
@@ -355,6 +358,7 @@ function generate(file) {
     if (+row.deaths[prevDate] >= THRESHOLD) {
       if (!data[parent]) {
         data[parent] = {
+          dataSource: dataSource,
           parent: country,
           region: parent,
           values: {},
@@ -408,10 +412,15 @@ function compile(schema, data, resume) {
   let count = 0;
   let chartIDs = [];
   let items = [];
+  let dataSource;
   regionNames.forEach(regionName => {
     const region = data[regionName];
+    if (!dataSource) {
+      dataSource = region.dataSource;
+    }
     compileRegion(schema, region, (err, val) => {
       items.push({
+        dataSource: dataSource,
         id: val.pageID,
         region: regionName,
         totalCases: val.totalCases,
@@ -437,6 +446,7 @@ function compile(schema, data, resume) {
 }
 
 function compileRegion(schema, data, resume) {
+  const dataSource = data.dataSource;
   const parent = data.parent;
   const region = data.region;
   const values = data.values;
@@ -449,6 +459,7 @@ function compileRegion(schema, data, resume) {
     const subRegion = data.values[subRegionName];
     compileSubRegion({}, subRegion, (err, val) => {
       items.push({
+        dataSource: dataSource,
         parent: region,
         region: subRegionName,
         id: val.id,
@@ -512,7 +523,10 @@ function renderTopPage(items, resume) {
   pageSrc += 'title "COVID-19"';
   pageSrc += "grid [\n";
   pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  if (items[0].dataSource) {
+    pageSrc += '"Data from: ", href "' + items[0].dataSource + '" "' + items[0].dataSource + '"';
+  }
+  pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
@@ -551,7 +565,10 @@ function renderRegionPage(items, resume) {
   pageSrc += 'title "COVID-19 in ' + items[0].parent + '"';
   pageSrc += "grid [\n";
   pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  if (items[0].dataSource) {
+    pageSrc += '"Data from: ", href "' + items[0].dataSource + '" "' + items[0].dataSource + '"';
+  }
+  pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {

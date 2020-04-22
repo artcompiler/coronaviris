@@ -136,6 +136,7 @@ function convert() {
       Object.keys(regions).forEach(fullName => {
         const region = regions[fullName];
         data.push({
+          dataSource: ['https://usafactsstatic.blob.core.windows.net/public/data/covid-19/'],
           regionName: region.regionName,
           groupName: region.groupName,
           cases: region.caseValues,
