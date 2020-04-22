@@ -47,7 +47,8 @@ function clean() {
 }
 
 const FILES = [
-  '../build/data/us.json',
+//  '../build/data/us.json',
+  '../build/data/nyt-us-states.json',
 //  '../build/data/spain-cases.json',
 //  '../build/data/spain-deaths.json',
 //  '../build/data/switzerland-cases.json',
