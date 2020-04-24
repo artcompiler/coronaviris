@@ -47,7 +47,7 @@ function build() {
   convert();
 }
 
-const DATE_RANGE = 29;
+const DATE_RANGE = 31;
 
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
@@ -63,42 +63,118 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const CASES_FILE_IN = './data/covid_confirmed_usafacts.csv';
-const DEATHS_FILE_IN = './data/covid_deaths_usafacts.csv';
-const CASES_FILE_OUT = 'build/data/us-cases.json';
-const DEATHS_FILE_OUT = 'build/data/us-deaths.json';
+const CASES_FILE = './data/covid_confirmed_usafacts.csv';
+const DEATHS_FILE = './data/covid_deaths_usafacts.csv';
+const FILE_OUT = 'build/data/us.json';
 
-function convert(inFile, outFile) {
-  const regionLabel = 'County Name';
-  const groupLabel = 'State';
+function loadData(filename, resume) {
   const data = [];
-  fs.createReadStream(inFile)
+  fs.createReadStream(filename)
     .pipe(csv())
     .on('data', (row) => {
-      const groupName = row["State"];
-      const regionName = row["County Name"];
-      const values = {};
-      const keys = Object.keys(row);
-      const dates = keys.slice(keys.length - 29);
-      dates.forEach((d, i) => {
-        const dateParts = d.split('/');
-        const year = dateParts[2];
-        const date = dateParts.length === 3 && new Date(year.length === 2 && '20' + year || year, dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
-        values[date] = +row[d];
-      });
-      data.push({
-        regionName: regionName,
-        groupName: groupName,
-        values: values,
-      });
+      data.push(row);
     })
     .on('end', () => {
-      fs.writeFile(outFile, JSON.stringify(data, null, 2), () => {
-        console.log(data.length + ' regions in US, written to ' + outFile);
-      });
+      resume([], data);
     });
 }
 
-convert(CASES_FILE_IN, CASES_FILE_OUT);
-convert(DEATHS_FILE_IN, DEATHS_FILE_OUT);
+function convert() {
+  const regionLabel = 'County Name';
+  const groupLabel = 'State';
+  const data = [];
+  const regions = {};
+  loadData(CASES_FILE, (err, casesData) => {
+    loadData(DEATHS_FILE, (err, deathsData) => {
+      casesData.forEach((row, i) => {
+        const regionName = row[regionLabel];
+        const groupName = row[groupLabel];
+        const fullName = groupName + ", " + regionName;
+        let region;
+        if (!regions[fullName]) {
+          region = regions[fullName] = {};
+          region.regionName = regionName;
+          region.groupName = groupName;
+          region.caseValues = {};
+          region.deathValues = {};
+        }
+        const keys = Object.keys(row);
+        const dates = keys.slice(keys.length - DATE_RANGE);
+        const cases = {}, deaths = {};
+        dates.forEach((d, i) => {
+          const dateParts = d.split('/');
+          const year = dateParts[2];
+          const date = dateParts.length === 3 && new Date(year.length === 2 && '20' + year || year, dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
+          if (date) {
+            region.caseValues[date] = +row[d];
+          }
+        });
+      });
+      deathsData.forEach((row, i) => {
+        const regionName = row[regionLabel];
+        const groupName = row[groupLabel];
+        const fullName = groupName + ", " + regionName;
+        let region = regions[fullName];
+        if (!regions[fullName]) {
+          region = regions[fullName] = {};
+          region.regionName = regionName;
+          region.groupName = groupName;
+          region.caseValues = {};
+          region.deathValues = {};
+        }
+        const keys = Object.keys(row);
+        const dates = keys.slice(keys.length - DATE_RANGE);
+        const cases = {}, deaths = {};
+        dates.forEach((d, i) => {
+          const dateParts = d.split('/');
+          const year = dateParts[2];
+          
+          const date = dateParts.length === 3 && new Date(year.length === 2 && '20' + year || year, dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
+          region.deathValues[date] = +row[d];
+        });
+      });
+      Object.keys(regions).forEach(fullName => {
+        const region = regions[fullName];
+        data.push({
+          dataSource: ['https://usafacts.org/visualizations/coronavirus-covid-19-spread-map/'],
+          regionName: region.regionName,
+          groupName: region.groupName,
+          cases: region.caseValues,
+          deaths: region.deathValues,
+        });
+      });
+      fs.writeFile(FILE_OUT, JSON.stringify(data, null, 2), () => {
+        console.log(data.length + ' regions in US, written to ' + FILE_OUT);
+      });
+    });
+  });
+  // fs.createReadStream(inFile)
+  //   .pipe(csv())
+  //   .on('data', (row) => {
+  //     const groupName = row["State"];
+  //     const regionName = row["County Name"];
+  //     const values = {};
+  //     const keys = Object.keys(row);
+  //     const dates = keys.slice(keys.length - DATE_RANGE);
+  //     dates.forEach((d, i) => {
+  //       const dateParts = d.split('/');
+  //       const year = dateParts[2];
+  //       const date = dateParts.length === 3 && new Date(year.length === 2 && '20' + year || year, dateParts[0] - 1, dateParts[1]).toISOString().slice(0, 10) || null;
+  //       values[date] = +row[d];
+  //     });
+  //     data.push({
+  //       regionName: regionName,
+  //       groupName: groupName,
+  //       cases: cases,
+  //       deaths: deaths,
+  //     });
+  //   })
+  //   .on('end', () => {
+  //     fs.writeFile(outFile, JSON.stringify(data, null, 2), () => {
+  //       console.log(data.length + ' regions in US, written to ' + outFile);
+  //     });
+  //   });
+}
+
+convert();
 

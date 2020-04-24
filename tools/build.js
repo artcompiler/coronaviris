@@ -1,6 +1,12 @@
-// TODO
-// -- compute daily values from totals
-// --
+/*
+   TODO
+   xx Compute daily values from totals
+   -- Fix negative new values
+   -- Render group charts
+   -- Add demographic data
+   -- Add attribution
+   --
+*/
 const https = require('https');
 const http = require('http');
 const csv = require('csv-parser');
@@ -41,13 +47,13 @@ function clean() {
 }
 
 const FILES = [
-  '../build/data/us-cases.json',
-  '../build/data/us-deaths.json',
-  '../build/data/spain-cases.json',
-  '../build/data/spain-deaths.json',
+  '../build/data/nyt-us-states.json',
+  '../build/data/us.json',
+//  '../build/data/spain-cases.json',
+//  '../build/data/spain-deaths.json',
 //  '../build/data/switzerland-cases.json',
 ];
-const SCALE = FILES.length;
+const SCALE = 5; //FILES.length;
 
 function build() {
   clean();
@@ -56,10 +62,10 @@ function build() {
   });
 }
 
-const DATE_RANGE = 29;
+const DATE_RANGE = 30;  // 28 + 2 (for three day averaging of the first value)
 
-const DEATHS_TYPE = "deaths";
-const CASES_TYPE = "cases";
+const DEATHS_TYPE = "Deaths";
+const CASES_TYPE = "Cases";
 
 const US_REGION = "US";
 const UK_REGION = "UK";
@@ -67,11 +73,11 @@ const SPAIN_REGION = "Spain";
 
 const NEW = false;
 
-const DEATHS_CHART_ID = "4LJhbQ57mSw";
-const CASES_CHART_ID = "1MNSpQ7RXHN";
+const DEATHS_CHART_ID = "wwaCz9dmAtq";
+const CASES_CHART_ID = "nKyT2lYNmIV";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 10;
+const THRESHOLD = 3;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -257,236 +263,386 @@ function getChartIDFromType(type) {
 function generate(file) {
   const rows = require(file);
   const fileName = file.split('/').pop();
-  const [country, suffix] = fileName.toLowerCase().split("-");
-  const type = suffix.split(".")[0];
+  const dataSource = rows[0].dataSource;
+  const [country] = fileName.toLowerCase().split("-");
+  const type = "cases";
   const chartID = getChartIDFromType(type);
-  const data = [];
+  const data = {};
   rows.forEach(row => {
     const region = row["regionName"];
-    const group = row["groupName"];
-    const keys = Object.keys(row.values);
+    const parent = row["groupName"];
+    const fullName = parent + ', ' + region;
+    const keys = Object.keys(row.cases);
     const dates = keys.slice(keys.length > DATE_RANGE && keys.length - DATE_RANGE || 0);
-    const objNew = {
-      region: group + ', ' + region,
-      isNew: true,
+    const objNewCases = {
+      parent: parent,
+      region: region,
+      type: 'New Cases',
       values: [],
     };
-    const objTotal = {
-      region: group + ', ' + region,
-      isNew: false,
+    const objTotalCases = {
+      parent: parent,
+      region: region,
+      type: 'Total Cases',
       values: [],
     };
-    let lastDate;
+    const objNewDeaths = {
+      parent: parent,
+      region: region,
+      type: 'New Deaths',
+      values: [],
+    };
+    const objTotalDeaths = {
+      parent: parent,
+      region: region,
+      type: 'Total Deaths',
+      values: [],
+    };
+    let prevDate;
     let value;
+    let rawCaseValues = [0, 0, 0];
+    let rawDeathValues = [0, 0, 0];
+    function rollingAvg(vals, val) {
+      vals.push(val);
+      const len = vals.length;
+      const avg = Math.ceil((vals[len - 1] + vals[len - 2] + vals[len - 1]) / 3);
+      return val > avg && val || avg;
+    }
     dates.forEach((date, i) => {
-      let currVal = row.values[date] || '0';
-      let lastVal = row.values[lastDate] || '0';
-      let newValue = currVal - lastVal;
-      let totalValue = currVal;
-      if (!isNaN(newValue)) {
-        objNew.values.push([date, newValue]);
+      if (date === 'null') {
+        return;
       }
-      if (!isNaN(totalValue)) {
-        objTotal.values.push([date, totalValue]);
+      // Smoothing: add last three raw values, divide by three and get the ceiling of the result.
+//      let currValCases = row.cases[date] = rollingAvg(rawCaseValues, row.cases[date] || 0);
+      let currValCases = row.cases[date] || 0;
+      let prevValCases = row.cases[prevDate] || 0;  // Already been averaged.
+      let newValCases = currValCases - prevValCases;
+      let totalValCases = currValCases;
+//      let currValDeaths = row.deaths[date] = rollingAvg(rawDeathValues, row.deaths[date] || 0);
+      let currValDeaths = row.deaths[date] || 0;
+      let prevValDeaths = row.deaths[prevDate] || 0;
+      let newValDeaths = currValDeaths - prevValDeaths;
+      let totalValDeaths = currValDeaths;  // Last one is the total.
+      if (!isNaN(newValCases)) {
+        objNewCases.values.push([date, newValCases]);
       }
-      lastDate = date;
+      if (!isNaN(totalValCases)) {
+        objTotalCases.values.push([date, totalValCases]);
+      }
+      if (!isNaN(newValDeaths)) {
+        objNewDeaths.values.push([date, newValDeaths]);
+      }
+      if (!isNaN(totalValDeaths)) {
+        objTotalDeaths.values.push([date, totalValDeaths]);
+      }
+      prevDate = date;
     });
-    let date = new Date(lastDate);
-    date.setDate(date.getDate() - objNew.values.length + 1);
-    for (let i = DATE_RANGE - objNew.values.length; i > 0; i--) {
+    let date = new Date(prevDate);
+    date.setDate(date.getDate() - objNewCases.values.length + 1);
+    for (let i = DATE_RANGE - objNewCases.values.length; i > 0; i--) {
+      // Add zero values for day for which there is no data.
+      // FIXME negative values.
       let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-      objNew.values.unshift([dateStr, 0]);
+      objNewCases.values.unshift([dateStr, 0]);
+      objTotalCases.values.unshift([dateStr, 0]);
+      objNewDeaths.values.unshift([dateStr, 0]);
+      objTotalDeaths.values.unshift([dateStr, 0]);
       date.setDate(date.getDate() - 1);
     }
-    objNew.values.unshift(["Date", "Count"]);
-    date = new Date(lastDate);
-    date.setDate(date.getDate() - objTotal.values.length + 1);
-    for (let i = DATE_RANGE - objTotal.values.length; i > 0; i--) {
-      let dateStr = date.getMonth() + "/" + date.getDate() + "/" + date.getFullYear();
-      objTotal.values.unshift([dateStr, 0]);
-      date.setDate(date.getDate() - 1);
-    }
-    objTotal.values.unshift(["Date", "Count"]);
-    if (+row.values[lastDate] >= THRESHOLD) {
-      data.push({
-        id: chartID,
-        data: objNew,
-      });
-      data.push({
-        id: chartID,
-        data: objTotal,
-      });
+    objNewCases.values.unshift(["Date", "Count"]);
+    objTotalCases.values.unshift(["Date", "Count"]);
+    objNewDeaths.values.unshift(["Date", "Count"]);
+    objTotalDeaths.values.unshift(["Date", "Count"]);
+    date = new Date(prevDate);
+    date.setDate(date.getDate() - objTotalCases.values.length + 1);
+    if (+row.deaths[prevDate] >= THRESHOLD) {
+      if (!data[parent]) {
+        data[parent] = {
+          dataSource: dataSource,
+          parent: country,
+          region: parent,
+          values: {},
+        };
+      }
+      if (!data[parent].values[region]) {
+        data[parent].values[region] = {
+          parent: parent,
+          region: region,
+        };
+      }
+      data[parent].values[region].newCases = {
+        id: CASES_CHART_ID,
+        parent: parent,
+        region: region,
+        type: "New Cases",
+        data: objNewCases,
+      };
+      data[parent].values[region].totalCases = {
+        id: CASES_CHART_ID,
+        parent: parent,
+        region: region,
+        type: "Total Cases",
+        data: objTotalCases,
+      };
+      data[parent].values[region].newDeaths = {
+        id: DEATHS_CHART_ID,
+        parent: parent,
+        region: region,
+        type: "New Deaths",
+        data: objNewDeaths,
+      };
+      data[parent].values[region].totalDeaths = {
+        id: DEATHS_CHART_ID,
+        parent: parent,
+        region: region,
+        type: "Total Deaths",
+        data: objTotalDeaths,
+      };
     }
   });
-  console.log(data.length / 2 + ' items found');
-  compile(data, country, type, val => {
+  compile({}, data, (err, val) => {
   });
 }
 
 const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
-function compile(data, country, type, resume) {
-  // data = [{id, data: {region, values}}]
+
+function compile(schema, data, resume) {
   console.log("Compiling...");
-  let allIDs = [];
-  let totalCharts = data.length;
+  const regionNames = Object.keys(data);
   let count = 0;
-  let regionTable = {};   // { name, total, subregions, data }
-  let regions = [];
-  let regionItems = [];
-  data.forEach((v) => {
-    let [region, subregion] = v.data.region.split(",");
-    let values = v.data.values;
-    let total = 0;
-    regions.push(v.data);
-    values.forEach(v => {
-      total = !isNaN(+v[1]) && v[1] || 0;
-    });
-    if (!regionTable[region]) {
-      regionTable[region] = {
-        region: region,
-        total: 0,
-        subregions: [],
-      };
+  let chartIDs = [];
+  let items = [];
+  let dataSource;
+  regionNames.forEach(regionName => {
+    const region = data[regionName];
+    if (!dataSource) {
+      dataSource = region.dataSource;
     }
-    regionTable[region].subregions.push({
-      id: v.id,
-      region: region,
-      subregion: subregion,
-      isNew: v.data.isNew || false,
-      total: total,
-      data: {
-        region: region,
-        values: values,
-      },
-    });
-  });
-  Object.keys(regionTable).forEach(region => {
-    let data = regionTable[region].subregions;
-    data.sort((a, b) => {
-      return b.total - a.total;
-    });
-    let total = 0;
-    data.forEach(v => {
-      total += v.total;  // Add total for each region.
-    });
-    regionTable[region].total = total;
-    regionItems.push(regionTable[region]);
-    putComp(secret, data, (err, valNew) => {
-      // Charts compiled.
-      const date = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(date.getDate() - 1);
-      let pageSrc = renderRegionPage(valNew, type, date, yesterday, allIDs);
-      putCode(secret, {
-        language: "L116",
-        src: pageSrc,
-      }, async (err, val) => {
-        // console.log("PUT /comp Region Page: https://gc.acx.ac/form?id=" + val.id);
-        regionTable[region].id = val.id;
-        if (allIDs.length === totalCharts) {
-          // All subregion charts have been compiled. Now render region charts.
-          let frontPage = renderFrontPage(regionItems, type, date, yesterday);
-          putCode(secret, {
-            language: "L116",
-            src: frontPage,
-          }, async (err, val) => {
-            console.log("PUT /comp Front Page: https://gc.acx.ac/form?id=" + val.id);
-            resume({
-              country: country,
-              type: type,
-              id: val.id
-            });
-            batchScrape(SCALE, false, allIDs, 0, (err, obj) => {
-              if (err) {
-                console.log("scrape() err=" + JSON.stringify(err));
-                reject(err);
-              } else {
-                console.log("done");
-                //console.log(JSON.stringify(regionTable, null, 2));
-              }
-            });
-          });
-        }
+    compileRegion(schema, region, (err, val) => {
+      items.push({
+        dataSource: dataSource,
+        id: val.pageID,
+        region: regionName,
+        totalCases: val.totalCases,
+        totalDeaths: val.totalDeaths,
       });
+      chartIDs = chartIDs.concat(val.chartIDs);
+      count++;
+      if (count === regionNames.length) {
+        renderTopPage(items, (err, val) => {
+          batchScrape(SCALE, false, chartIDs, 0, (err, obj) => {
+            if (err) {
+              console.log("scrape() err=" + JSON.stringify(err));
+              reject(err);
+            } else {
+              console.log("done");
+            }
+          });
+        });
+      }
+      resume(err, val);
     });
   });
 }
 
-function renderFrontPage(items, type, now, yesterday) {
+function compileRegion(schema, data, resume) {
+  const dataSource = data.dataSource;
+  const parent = data.parent;
+  const region = data.region;
+  const values = data.values;
+  const subRegionNames = Object.keys(values);
+  const items = [];
+  let chartIDs = [];
+  let totalCases = 0, totalDeaths = 0;
+  subRegionNames.forEach(subRegionName => {
+    // For each region, compile the charts of each sub region.
+    const subRegion = data.values[subRegionName];
+    compileSubRegion({}, subRegion, (err, val) => {
+      items.push({
+        dataSource: dataSource,
+        parent: region,
+        region: subRegionName,
+        id: val.id,
+        pageSrc: val.pageSrc,
+        totalCases: val.totalCases,
+        totalDeaths: val.totalDeaths,
+      });
+      chartIDs = chartIDs.concat(val.chartIDs);
+      totalCases += val.totalCases;
+      totalDeaths += val.totalDeaths;
+      if (items.length === subRegionNames.length) {
+        renderRegionPage(items, (err, val) => {
+          resume(err, {
+            pageID: val.id,
+            items: items,
+            chartIDs: chartIDs,
+            totalCases: totalCases,
+            totalDeaths: totalDeaths,
+          });
+        });
+      }
+    });
+  });
+}
+
+function compileSubRegion(schema, data, resume) {
+  const ids = [];
+  putComp(secret, [data.newCases, data.totalCases, data.newDeaths, data.totalDeaths], (err, val) => {
+    const date = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(date.getDate() - 1);
+    const totalCasesValues = data.totalCases.data.values;
+    const totalDeathsValues = data.totalDeaths.data.values;
+    renderSubRegionPage(val, date, yesterday, (err, val) => {
+      val.totalCases = totalCasesValues[totalCasesValues.length - 1][1],
+      val.totalDeaths = totalDeathsValues[totalDeathsValues.length - 1][1],
+      resume(err, val)
+    });
+  });
+}
+
+function formatNumber(val) {
+  val = "" + val;
+  formatted = "";
+  for (let i = 0; i < val.length; i++) {
+    if (i !== 0 && (val.length - i) % 3 === 0) {
+      formatted += ",";
+    }
+    formatted += val[i];
+  }
+  return formatted;
+}
+
+function renderTopPage(items, resume) {
   // item = {region, total, id}
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+  pageSrc += 'title "COVID-19"';
   pageSrc += "grid [\n";
   pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  if (items[0].dataSource) {
+    pageSrc += '"Data from: ", href "' + items[0].dataSource + '" "' + items[0].dataSource + '"';
+  }
+  pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
   let completed = 0;
   items.sort((a, b) => {
-    return b.total - a.total;
+    return b.totalDeaths - a.totalDeaths;
   });
   items && items.length && items.forEach((item, i) => {
-    // console.log("renderFrontPage() item=" + JSON.stringify(item, null, 2));
     let region = item.region;
-    pageSrc +=
-    'style { "fontSize": "12"} row twelve-columns [br, ' +
-      'href "form?id=' + item.id + '" "' + region + '", ' +
-      'br, "' + item['total'] + ' total ' + type + '", br, ' +
-      '"' + yesterday.toUTCString().slice(0, 16) + '"' +
-      ']\n';
+    pageSrc += `
+    style { "fontSize": "12"} row twelve-columns [
+      br,
+      href "form?id=${item.id}" "${region}",
+      br,
+      "${formatNumber(item.totalDeaths)} Deaths",
+      br,
+      "${formatNumber(item.totalCases)} Cases"
+    ]
+    `;
   });
   pageSrc += "].."
-  return pageSrc;
+  putCode(secret, {
+    language: "L116",
+    src: pageSrc,
+  }, async (err, val) => {
+    console.log("PUT /comp Top Page: https://gc.acx.ac/form?id=" + val.id);
+    resume(err, val);
+  });
 }
 
-function renderRegionPage(items, type, now, yesterday, ids) {
-  // item = {region, subregion, total, id, isNew}
-  const itemsTable = {};
-  const itemsNames = [];
-  items.forEach(item => {
-    const name = item.subregion + ", " + item.region;
-    if (!itemsTable[name]) {
-      itemsTable[name] = {};
-    }
-    if (item.isNew) {
-      itemsTable[name]["new"] = item;
-    } else {
-      itemsNames.push(name);
-      itemsTable[name]["total"] = item;
-    }
-  });
+function renderRegionPage(items, resume) {
+  // item = {region, total, id}
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
   let pageSrc = "";
   pageSrc += "\nlet resize = <x: style { 'width': 250 } x>..\n";
+  pageSrc += 'title "COVID-19 in ' + items[0].parent + '"';
   pageSrc += "grid [\n";
   pageSrc += 'row twelve-columns [br, ';
-  pageSrc += 'style { "fontSize": "12"} cspan "Posted: ' + now.toUTCString() + '"';
+  if (items[0].dataSource) {
+    pageSrc += '"Data from: ", href "' + items[0].dataSource + '" "' + items[0].dataSource + '"';
+  }
+  pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
+  let completed = 0;
+  items.sort((a, b) => {
+    return b.totalDeaths - a.totalDeaths;
+  });
+  items && items.length && items.forEach((item, i) => {
+    let region = item.region + ', ' + item.parent;
+    pageSrc += item.pageSrc;
+  });
+  pageSrc += "].."
+  putCode(secret, {
+    language: "L116",
+    src: pageSrc,
+  }, async (err, val) => {
+    resume(err, val);
+  });
+}
+
+function renderSubRegionPage(items, now, yesterday, resume) {
+  const itemsTable = {};
+  const itemsNames = [];
+  const ids = [];
+  items.forEach(item => {
+    const name = item.parent + ", " + item.region;
+    const type = item.type;
+    if (!itemsTable[name]) {
+      itemsTable[name] = {};
+      itemsNames.push(name);
+    }
+    itemsTable[name][type] = item;
+  });
+  let pageSrc = "";
   let completed = 0;
   itemsNames.forEach(name => {
     let item = itemsTable[name];
-    let newItem = item["new"];
-    let totalItem = item["total"];
-    let region = newItem.region + "," + newItem.subregion;
+    let newCasesItem = item["New Cases"];
+    let totalCasesItem = item["Total Cases"];
+    let newDeathsItem = item["New Deaths"];
+    let totalDeathsItem = item["Total Deaths"];
+    let region = newCasesItem.region + ', ' + newCasesItem.parent;
     pageSrc += `
-      style { "fontSize": 12} row [
-        two-columns [
-          br, style {"fontWeight": 600} "${region}",
+    style {"fontSize": 12, "height": 100, "textAlign": "center"} row [
+        twelve-columns [
+          br, br, br, style {"fontWeight": 600} "${region}",
           br, "${yesterday.toUTCString().slice(0, 16)}"
         ]
-        five-columns [
-          br, href "form?id=${newItem.id}" resize img "https://cdn.acx.ac/${newItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "New ${type} by day",
+      ]`;
+    pageSrc += `
+      style { "fontSize": 12, "height": 175, "textAlign": "center"} row [
+        six-columns [
+          href "form?id=${newDeathsItem.id}" resize img "https://cdn.acx.ac/${newDeathsItem.id}.png",
         ],
-        five-columns [
-          br, href "form?id=${totalItem.id}" resize img "https://cdn.acx.ac/${totalItem.id}.png",
-          br, style {"fontSize": 11, "fontWeight": 600, "opacity": .4, "marginLeft": 25} "Total ${type} by day",
+        six-columns [
+          href "form?id=${totalDeathsItem.id}" resize img "https://cdn.acx.ac/${totalDeathsItem.id}.png",
         ]
       ]`;
-    ids.push(newItem.id);
-    ids.push(totalItem.id);
+    pageSrc += `
+      style { "fontSize": 12, "height": 175, "textAlign": "center"} row [
+        six-columns [
+          href "form?id=${newCasesItem.id}" resize img "https://cdn.acx.ac/${newCasesItem.id}.png",
+        ],
+        six-columns [
+          href "form?id=${totalCasesItem.id}" resize img "https://cdn.acx.ac/${totalCasesItem.id}.png",
+        ]
+      ]`;
+    ids.push(newCasesItem.id);
+    ids.push(totalCasesItem.id);
+    ids.push(newDeathsItem.id);
+    ids.push(totalDeathsItem.id);
   });
-  pageSrc += "].."
-  return pageSrc;
+  resume([], {
+    pageSrc: pageSrc,
+    chartIDs: ids,
+  });
 }
 
 build();
-
