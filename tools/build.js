@@ -62,8 +62,6 @@ function build() {
   });
 }
 
-const DATE_RANGE = 30;  // 28 + 2 (for three day averaging of the first value)
-
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
@@ -260,6 +258,8 @@ function getChartIDFromType(type) {
   return null;
 }
 
+const DATE_RANGE = 31;  // 28 + 2 (for three day averaging of the first value)
+
 function generate(file) {
   const rows = require(file);
   const fileName = file.split('/').pop();
@@ -349,10 +349,15 @@ function generate(file) {
       objTotalDeaths.values.unshift([dateStr, 0]);
       date.setDate(date.getDate() - 1);
     }
-    objNewCases.values.unshift(["Date", "Count"]);
-    objTotalCases.values.unshift(["Date", "Count"]);
-    objNewDeaths.values.unshift(["Date", "Count"]);
-    objTotalDeaths.values.unshift(["Date", "Count"]);
+    function sliceAndLabelValues(values) {
+      values = values.slice(values.length - 29);
+      values.unshift(["Date", "Count"]);
+      return values;
+    }
+    objNewCases.values = sliceAndLabelValues(objNewCases.values);
+    objTotalCases.values = sliceAndLabelValues(objTotalCases.values);
+    objNewDeaths.values = sliceAndLabelValues(objNewDeaths.values);
+    objTotalDeaths.values = sliceAndLabelValues(objTotalDeaths.values);
     date = new Date(prevDate);
     date.setDate(date.getDate() - objTotalCases.values.length + 1);
     if (+row.deaths[prevDate] >= THRESHOLD) {
