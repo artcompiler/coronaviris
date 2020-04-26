@@ -47,12 +47,10 @@ function clean() {
 }
 
 const FILES = [
-  '../build/data/nyt-us.json',
-  '../build/data/nyt-us-states.json',
-  '../build/data/us.json',
-//  '../build/data/spain-cases.json',
-//  '../build/data/spain-deaths.json',
-//  '../build/data/switzerland-cases.json',
+//  '../build/data/nyt-us.json',
+//  '../build/data/nyt-us-states.json',
+//  '../build/data/us.json',
+  '../build/data/isciii-spain.json',
 ];
 const SCALE = 5; //FILES.length;
 
@@ -315,15 +313,15 @@ function generate(file) {
       }
       // Smoothing: add last three raw values, divide by three and get the ceiling of the result.
 //      let currValCases = row.cases[date] = rollingAvg(rawCaseValues, row.cases[date] || 0);
-      let currValCases = row.cases[date] || 0;
-      let prevValCases = row.cases[prevDate] || 0;  // Already been averaged.
+      let prevValCases = +row.cases[prevDate] || 0;  // Already been averaged.
+      let currValCases = +row.cases[date] || prevValCases || 0;
       let newValCases = currValCases - prevValCases;
-      let totalValCases = currValCases;
+      let totalValCases = currValCases || prevValCases;
 //      let currValDeaths = row.deaths[date] = rollingAvg(rawDeathValues, row.deaths[date] || 0);
-      let currValDeaths = row.deaths[date] || 0;
-      let prevValDeaths = row.deaths[prevDate] || 0;
+      let prevValDeaths = +row.deaths[prevDate] || 0;
+      let currValDeaths = +row.deaths[date] || prevValDeaths || 0;
       let newValDeaths = currValDeaths - prevValDeaths;
-      let totalValDeaths = currValDeaths;  // Last one is the total.
+      let totalValDeaths = currValDeaths || prevValDeaths;  // Last one is the total.
       if (!isNaN(newValCases)) {
         objNewCases.values.push([date, newValCases]);
       }

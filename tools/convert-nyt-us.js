@@ -47,24 +47,11 @@ function build() {
   convert();
 }
 
-const DATE_RANGE = 29;
-
 const DEATHS_TYPE = "Deaths";
 const CASES_TYPE = "Cases";
 
-const US_REGION = "US";
-const UK_REGION = "UK";
-const REGION = US_REGION;
-
-const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
-const NEW = false;
-
-const DEATHS_CHART_ID = "4LJhbQ57mSw";
-const CASES_CHART_ID = "1MNSpQ7RXHN";
-const RECOVERED_CHART_ID = "";
-
 const FILE_IN = './data/nyt-us.csv';
-const FILE_OUT = 'build/data/nyt-us.json';
+const FILE_OUT = './build/data/nyt-us.json';
 
 function loadData(filename, resume) {
   const data = [];

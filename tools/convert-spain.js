@@ -47,23 +47,8 @@ function build() {
   convert();
 }
 
-const DATE_RANGE = 29;
-
-const DEATHS_TYPE = "Deaths";
-const CASES_TYPE = "Cases";
-
-const US_REGION = "US";
-const UK_REGION = "UK";
-const REGION = US_REGION;
-
-const TYPE = CASES_TYPE;  // SET ME TO CHANGE CHARTS!
-const NEW = false;
-
-const DEATHS_CHART_ID = "4LJhbQ57mSw";
-const CASES_CHART_ID = "1MNSpQ7RXHN";
-const RECOVERED_CHART_ID = "";
-
-const DATA_FILE = './data/covid_spain.csv';
+const FILE_IN = './data/isciii-spain.csv';
+const FILE_OUT = './build/data/isciii-spain.json';
 
 const REGION_NAMES = {
   'AN': 'Andalucía',
@@ -87,57 +72,61 @@ const REGION_NAMES = {
   'RI': 'La Rioja',
 };
 
+function loadData(filename, resume) {
+  const data = [];
+  fs.createReadStream(filename)
+    .pipe(csv())
+    .on('data', (row) => {
+      data.push(row);
+    })
+    .on('end', () => {
+      resume([], data);
+    });
+}
+
 function convert() {
   const regionLabel = 'CCAA';
   const dateLabel = 'FECHA';
   const casesLabel = 'CASOS';
   const deathsLabel = 'Fallecidos';
-  const casesTable = {}, deathsTable = {};
-  fs.createReadStream(DATA_FILE)
-    .pipe(csv())
-    .on('data', (row) => {
-      const region = REGION_NAMES[row[regionLabel]];
-      if (!casesTable[region]) {
-        casesTable[region] = {
-          regionName: region,
-          groupName: "Spain",
-          values: {},
-        };
+  const data = [];
+  const regions = {};
+  loadData(FILE_IN, (err, rawData) => {
+    rawData.forEach((row, i) => {
+      const regionName = REGION_NAMES[row[regionLabel]];
+      const groupName = "Spain";
+      const fullName = groupName + ", " + regionName;
+      let region = regions[fullName];
+      if (!region) {
+        region = regions[fullName] = {};
+        region.regionName = regionName;
+        region.groupName = groupName;
+        region.caseValues = {};
+        region.deathValues = {};
       }
-      if (!deathsTable[region]) {
-        deathsTable[region] = {
-          regionName: region,
-          groupName: "Spain",
-          values: {},
-        };
+      const dateParts = row[dateLabel].split('/');
+      const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
+      const casesCount = casesCountLast = row[casesLabel];
+      const deathsCount = deathsCountLast = row[deathsLabel];
+      if (date) {
+        region.caseValues[date] = casesCount;
+        region.deathValues[date] = deathsCount;
       }
-      let data = null;
-      if (row[dateLabel]) {
-        const dateParts = row[dateLabel].split('/');
-        date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
-        const casesCount = row[casesLabel];
-        const deathsCount = row[deathsLabel];
-        casesTable[region].values[date] = +casesCount || 0;
-        deathsTable[region].values[date] = +deathsCount || 0;
-      }
-      if (date === null) {
-        delete casesTable[region];
-        delete deathsTable[region];
-      }
-    })
-    .on('end', () => {
-      const casesData = [], deathsData = [];
-      Object.keys(casesTable).forEach(key => {
-        casesData.push(casesTable[key]);
-        deathsData.push(deathsTable[key]);
-      });
-      fs.writeFile('build/data/spain-cases.json', JSON.stringify(casesData, null, 2), () => {
-        console.log(casesData.length + ' regions in Spain, written to build/data/spain-cases.json');
-      });
-      fs.writeFile('build/data/spain-deaths.json', JSON.stringify(deathsData, null, 2), () => {
-        console.log(deathsData.length + ' regions in Spain, written to build/data/spain-deaths.json');
+    });
+    Object.keys(regions).forEach(fullName => {
+      const region = regions[fullName];
+      data.push({
+        dataSource: ['https://github.com/nytimes/covid-19-data/blob/master/us.csv'],
+        regionName: region.regionName,
+        groupName: region.groupName,
+        cases: region.caseValues,
+        deaths: region.deathValues,
       });
     });
+    fs.writeFile(FILE_OUT, JSON.stringify(data, null, 2), () => {
+      console.log(data.length + ' regions in Spain written to ' + FILE_OUT);
+    });
+  });
 }
 
 convert();
