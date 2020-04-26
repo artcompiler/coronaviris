@@ -116,7 +116,7 @@ function convert() {
     Object.keys(regions).forEach(fullName => {
       const region = regions[fullName];
       data.push({
-        dataSource: ['https://github.com/nytimes/covid-19-data/blob/master/us.csv'],
+        dataSource: ['https://covid19.isciii.es/resources/serie_historica_acumulados.csv'],
         regionName: region.regionName,
         groupName: region.groupName,
         cases: region.caseValues,

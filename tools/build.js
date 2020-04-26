@@ -47,9 +47,9 @@ function clean() {
 }
 
 const FILES = [
-//  '../build/data/nyt-us.json',
-//  '../build/data/nyt-us-states.json',
-//  '../build/data/us.json',
+  '../build/data/nyt-us.json',
+  '../build/data/nyt-us-states.json',
+  '../build/data/us.json',
   '../build/data/isciii-spain.json',
 ];
 const SCALE = 5; //FILES.length;
