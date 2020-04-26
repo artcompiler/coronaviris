@@ -7,7 +7,7 @@ convert:
 	mkdir build/data
 	node tools/convert-nyt-us-states.js
 	node tools/convert-nyt-us.js
-	node tools/convert-us.js
+	node tools/convert-usafacts-us-counties.js
 	node tools/convert-spain.js
 #	node tools/convert-switzerland.js
 
