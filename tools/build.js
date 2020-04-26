@@ -74,7 +74,7 @@ const DEATHS_CHART_ID = "wwaCz9dmAtq";
 const CASES_CHART_ID = "nKyT2lYNmIV";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 3;
+const THRESHOLD = 10;
 
 const pingCache = {};
 function pingLang(lang, resume) {
