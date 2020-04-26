@@ -63,9 +63,9 @@ const DEATHS_CHART_ID = "4LJhbQ57mSw";
 const CASES_CHART_ID = "1MNSpQ7RXHN";
 const RECOVERED_CHART_ID = "";
 
-const CASES_FILE = './data/covid_confirmed_usafacts.csv';
-const DEATHS_FILE = './data/covid_deaths_usafacts.csv';
-const FILE_OUT = 'build/data/us.json';
+const CASES_FILE = './data/usafacts-us-counties-cases.csv';
+const DEATHS_FILE = './data/usafacts-us-counties-deaths.csv';
+const FILE_OUT = 'build/data/usafacts-us-counties.json';
 
 function loadData(filename, resume) {
   const data = [];
