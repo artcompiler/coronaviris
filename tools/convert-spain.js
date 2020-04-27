@@ -104,6 +104,9 @@ function convert() {
         region.caseValues = {};
         region.deathValues = {};
       }
+      if (!row[dateLabel]) {
+        return;
+      }
       const dateParts = row[dateLabel].split('/');
       const date = dateParts.length === 3 && new Date(dateParts[2], dateParts[1] - 1, dateParts[0]).toISOString().slice(0, 10) || null;
       const casesCount = casesCountLast = row[casesLabel];
