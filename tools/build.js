@@ -70,8 +70,8 @@ const SPAIN_REGION = "Spain";
 
 const NEW = false;
 
-const DEATHS_CHART_ID = "wwaCz9dmAtq";
-const CASES_CHART_ID = "nKyT2lYNmIV";
+const DEATHS_CHART_ID = "nKyT2drm6FV";
+const CASES_CHART_ID = "KzNCV2ZyJFN";
 const RECOVERED_CHART_ID = "";
 
 const THRESHOLD = 10;
