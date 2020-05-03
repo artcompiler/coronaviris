@@ -47,10 +47,11 @@ function clean() {
 }
 
 const FILES = [
-//  '../build/data/nyt-us.json',
-//  '../build/data/nyt-us-states.json',
+  // '../build/data/owid-world.json',
+  // '../build/data/nyt-us.json',
+  // '../build/data/nyt-us-states.json',
   '../build/data/usafacts-us-counties.json',
-  '../build/data/isciii-spain.json',
+  // '../build/data/isciii-spain.json',
 ];
 const SCALE = 5; //FILES.length;
 
@@ -70,8 +71,8 @@ const SPAIN_REGION = "Spain";
 
 const NEW = false;
 
-const DEATHS_CHART_ID = "nKyT2drm6FV";
-const CASES_CHART_ID = "KzNCV2ZyJFN";
+const DEATHS_CHART_ID = "l16CBlVv2fX";
+const CASES_CHART_ID = "Je1cxWV8bsx";
 const RECOVERED_CHART_ID = "";
 
 const THRESHOLD = 10;
