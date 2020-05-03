@@ -12,6 +12,7 @@ convert:
 #	node tools/convert-switzerland.js
 
 refresh:
+	curl https://covid.ourworldindata.org/data/owid-covid-data.csv > data/owid-world.csv
 	curl https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv > data/nyt-us-counties.csv
 	curl https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv > data/nyt-us-states.csv
 	curl https://raw.githubusercontent.com/nytimes/covid-19-data/master/us.csv > data/nyt-us.csv
