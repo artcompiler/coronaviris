@@ -5,6 +5,7 @@ convert:
 	rm -rf build
 	mkdir build
 	mkdir build/data
+	node tools/convert-owid-world.js
 	node tools/convert-nyt-us-states.js
 	node tools/convert-nyt-us.js
 	node tools/convert-usafacts-us-counties.js
