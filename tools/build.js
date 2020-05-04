@@ -47,9 +47,10 @@ function clean() {
 }
 
 const FILES = [
-  // '../build/data/owid-world.json',
-  // '../build/data/nyt-us.json',
-  // '../build/data/nyt-us-states.json',
+  '../build/data/owid-world.json',
+  '../build/data/nyt-us.json',
+  '../build/data/nyt-us-states.json',
+  '../build/data/nyt-us-counties.json',
   '../build/data/usafacts-us-counties.json',
   // '../build/data/isciii-spain.json',
 ];
@@ -75,7 +76,7 @@ const DEATHS_CHART_ID = "l16CBlVv2fX";
 const CASES_CHART_ID = "Je1cxWV8bsx";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 10;
+const THRESHOLD = 5;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -360,7 +361,12 @@ function generate(file) {
     objTotalDeaths.values = sliceAndLabelValues(objTotalDeaths.values);
     date = new Date(prevDate);
     date.setDate(date.getDate() - objTotalCases.values.length + 1);
-    if (+row.deaths[prevDate] >= THRESHOLD) {
+    let sevenDayDeathTotal = 0;
+    let objNewDeathsValues = objNewDeaths.values;
+    for (let i = objNewDeathsValues.length - 1; i > objNewDeathsValues.length - 8; i--) {
+      sevenDayDeathTotal += objNewDeathsValues[i][1];
+    }
+    if (sevenDayDeathTotal >= THRESHOLD) {
       if (!data[parent]) {
         data[parent] = {
           dataSource: dataSource,
@@ -373,6 +379,7 @@ function generate(file) {
         data[parent].values[region] = {
           parent: parent,
           region: region,
+          sevenDayDeathTotal: sevenDayDeathTotal,
         };
       }
       data[parent].values[region].newCases = {
@@ -471,6 +478,7 @@ function compileRegion(schema, data, resume) {
         pageSrc: val.pageSrc,
         totalCases: val.totalCases,
         totalDeaths: val.totalDeaths,
+        sevenDayDeaths: subRegion.sevenDayDeathTotal,
       });
       chartIDs = chartIDs.concat(val.chartIDs);
       totalCases += val.totalCases;
@@ -533,6 +541,7 @@ function renderTopPage(items, resume) {
   }
   pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
+  pageSrc += 'row twelve-columns [br, "Sorted by total deaths."],';
   let completed = 0;
   items.sort((a, b) => {
     return b.totalDeaths - a.totalDeaths;
@@ -575,9 +584,10 @@ function renderRegionPage(items, resume) {
   }
   pageSrc += 'br, "Posted: ' + now.toUTCString() + '"';
   pageSrc += '],\n';
+  pageSrc += 'row twelve-columns [br, "Sorted by the number of deaths in the last seven days."],';
   let completed = 0;
   items.sort((a, b) => {
-    return b.totalDeaths - a.totalDeaths;
+    return b.sevenDayDeaths - a.sevenDayDeaths;
   });
   items && items.length && items.forEach((item, i) => {
     let region = item.region + ', ' + item.parent;
