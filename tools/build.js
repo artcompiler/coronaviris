@@ -76,7 +76,7 @@ const DEATHS_CHART_ID = "l16CBlVv2fX";
 const CASES_CHART_ID = "Je1cxWV8bsx";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 5;
+const THRESHOLD = 10;
 
 const pingCache = {};
 function pingLang(lang, resume) {
@@ -366,7 +366,8 @@ function generate(file) {
     for (let i = objNewDeathsValues.length - 1; i > objNewDeathsValues.length - 8; i--) {
       sevenDayDeathTotal += objNewDeathsValues[i][1];
     }
-    if (sevenDayDeathTotal >= THRESHOLD) {
+    if (+row.deaths[prevDate] >= THRESHOLD) {
+    // if (sevenDayDeathTotal >= THRESHOLD) {
       if (!data[parent]) {
         data[parent] = {
           dataSource: dataSource,
