@@ -365,9 +365,7 @@ function generate(file) {
     for (let i = objNewDeathsValues.length - 1; i > objNewDeathsValues.length - 8; i--) {
       sevenDayDeathTotal += objNewDeathsValues[i][1];
     }
-    console.log("compile() prevDate=" + prevDate + " row.deaths[prevDate]=" + JSON.stringify(row.deaths[prevDate], null, 2));
     if (+row.deaths[prevDate] >= THRESHOLD) {
-      console.log("generate() parent=" + JSON.stringify(parent, null, 2));
     //if (sevenDayDeathTotal >= THRESHOLD) {
       if (!data[parent]) {
         data[parent] = {
