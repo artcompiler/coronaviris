@@ -47,11 +47,11 @@ function clean() {
 }
 
 const FILES = [
-  '../build/data/owid-world.json',
-  // '../build/data/usafacts-us-counties.json',
-  // '../build/data/nyt-us.json',
-  // '../build/data/nyt-us-states.json',
-  // '../build/data/nyt-us-counties.json',
+  // '../build/data/owid-world.json',
+  '../build/data/usafacts-us-counties.json',
+  '../build/data/nyt-us.json',
+  '../build/data/nyt-us-states.json',
+  '../build/data/nyt-us-counties.json',
 ];
 const SCALE = 5; //FILES.length;
 
@@ -416,7 +416,8 @@ function generate(file) {
   });
 }
 
-const secret = process.env.ARTCOMPILER_CLIENT_SECRET;
+const address = process.env.ARTCOMPILER_CLIENT_ADDRESS || '0xaE91FC0da6B3a5d9dB881531b5227ABE075a806B';
+const secret = process.env.ARTCOMPILER_CLIENT_SECRET || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZGRyZXNzIjoiMHhhZTkxZmMwZGE2YjNhNWQ5ZGI4ODE1MzFiNTIyN2FiZTA3NWE4MDZiIiwiYWNjZXNzIjoiY29tcGlsZSIsImlhdCI6MTU2NzUyNzgwNn0.qe8Y8jm-J0TtU0oN45-Y3Ud9RSLmz6Eba7-dPguj8bQ';
 
 function compile(schema, data, resume) {
   console.log("Compiling...");
