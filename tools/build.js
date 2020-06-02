@@ -48,10 +48,10 @@ function clean() {
 
 const FILES = [
   // '../build/data/owid-world.json',
-  // '../build/data/usafacts-us-counties.json',
-  '../build/data/nyt-us.json',
-  '../build/data/nyt-us-states.json',
-  '../build/data/nyt-us-counties.json',
+  '../build/data/usafacts-us-counties.json',
+  // '../build/data/nyt-us.json',
+  // '../build/data/nyt-us-states.json',
+  // '../build/data/nyt-us-counties.json',
 ];
 const SCALE = 5; //FILES.length;
 
@@ -75,7 +75,7 @@ const DEATHS_CHART_ID = "l16CBlVv2fX";
 const CASES_CHART_ID = "Je1cxWV8bsx";
 const RECOVERED_CHART_ID = "";
 
-const THRESHOLD = 20;
+const THRESHOLD = 25;
 
 const pingCache = {};
 function pingLang(lang, resume) {
