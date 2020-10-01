@@ -47,10 +47,10 @@ function clean() {
 }
 
 const FILES = [
-  // '../build/data/nyt-us.json',
-  // '../build/data/nyt-us-states.json',
-  // '../build/data/nyt-us-counties.json',
-  '../build/data/owid-world.json',
+  '../build/data/nyt-us.json',
+  '../build/data/nyt-us-states.json',
+  '../build/data/nyt-us-counties.json',
+  // '../build/data/owid-world.json',
   // '../build/data/usafacts-us-counties.json',
 ];
 const SCALE = 5; //FILES.length;
