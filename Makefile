@@ -9,7 +9,6 @@ convert:
 	node tools/convert-nyt-us-counties.js
 	node tools/convert-nyt-us-states.js
 	node tools/convert-nyt-us.js
-	node tools/convert-usafacts-us-counties.js
 
 refresh:
 	curl https://covid.ourworldindata.org/data/owid-covid-data.csv > data/owid-world.csv
