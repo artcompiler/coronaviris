@@ -1,5 +1,7 @@
 build:
+	./puppeteer-up.sh
 	node tools/build.js
+	./puppeteer-down.sh
 
 convert:
 	rm -rf build
