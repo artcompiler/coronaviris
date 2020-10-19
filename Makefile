@@ -2,6 +2,7 @@ build:
 	./puppeteer-up.sh
 	node tools/build.js
 	./puppeteer-down.sh
+	git commit -am -
 
 convert:
 	rm -rf build
