@@ -1,4 +1,4 @@
-build:
+build: convert
 	./puppeteer-up.sh
 	node tools/build.js
 	./puppeteer-down.sh
